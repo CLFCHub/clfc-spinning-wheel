@@ -1,11 +1,15 @@
 const GRADES = ["league", "reserves", "colts", "thirds"];
 const SPIN_DURATION_MS = 3200;
 
-const cors = env => ({
-  "access-control-allow-origin": env.ALLOWED_ORIGIN || "*",
-  "access-control-allow-methods": "GET,POST,OPTIONS",
-  "access-control-allow-headers": "content-type"
-});
+const cors = (env, request) => {
+  const origin = request ? request.headers.get("Origin") : null;
+  return {
+    "access-control-allow-origin": origin || "*",
+    "access-control-allow-methods": "GET,POST,OPTIONS",
+    "access-control-allow-headers": "content-type",
+    "access-control-allow-credentials": "true"
+  };
+};
 
 const json = (data, status = 200, headers = {}) =>
   new Response(JSON.stringify(data), {
@@ -63,7 +67,7 @@ async function getAllHistory(db) {
 
 async function handleState(request, env) {
   const g = grade(new URL(request.url).searchParams.get("grade"));
-  if (!g) return json({ error: "Invalid grade." }, 400, cors(env));
+  if (!g) return json({ error: "Invalid grade." }, 400, cors(env, request));
 
   await ensureTable(env.DB);
   const fullRoster = await getFullRoster(env.DB, g);
@@ -77,13 +81,13 @@ async function handleState(request, env) {
     history,
     spin_duration_ms: SPIN_DURATION_MS,
     roster_empty: fullRoster.length === 0
-  }, 200, cors(env));
+  }, 200, cors(env, request));
 }
 
 async function handleVerify(request, env) {
   const b = await request.json().catch(() => ({}));
   const g = grade(b.grade), p = pin(b.pin);
-  if (!g || !p) return json({ allowed: false, message: "Enter a valid grade and 4-digit PIN." }, 400, cors(env));
+  if (!g || !p) return json({ allowed: false, message: "Enter a valid grade and 4-digit PIN." }, 400, cors(env, request));
 
   await ensureTable(env.DB);
   
@@ -92,16 +96,16 @@ async function handleVerify(request, env) {
     "SELECT playhq_uid, name FROM members WHERE CAST(pin AS TEXT) = ?"
   ).bind(p).first();
 
-  if (!spinner) return json({ allowed: false, message: "PIN not found in members list." }, 401, cors(env));
+  if (!spinner) return json({ allowed: false, message: "PIN not found in members list." }, 401, cors(env, request));
 
   const fullRoster = await getFullRoster(env.DB, g);
-  if (!fullRoster.length) return json({ allowed: false, reason: "empty", message: "No teams named yet." }, 200, cors(env));
+  if (!fullRoster.length) return json({ allowed: false, reason: "empty", message: "No teams named yet." }, 200, cors(env, request));
 
   const spunUIDs = await getSpunUIDs(env.DB, g);
   const activeWheel = fullRoster.filter(p => !spunUIDs.has(p.playhq_uid));
 
   if (fullRoster.some(x => x.playhq_uid === spinner.playhq_uid)) {
-    return json({ allowed: false, reason: "self_on_wheel", message: "You can't spin this wheel because your name is on it." }, 200, cors(env));
+    return json({ allowed: false, reason: "self_on_wheel", message: "You can't spin this wheel because your name is on it." }, 200, cors(env, request));
   }
 
   const alreadySpun = await env.DB.prepare(
@@ -109,20 +113,20 @@ async function handleVerify(request, env) {
   ).bind(g, spinner.playhq_uid).first();
 
   if (alreadySpun) {
-    return json({ allowed: false, reason: "already_spun", message: "You have already used your spin for this grade." }, 200, cors(env));
+    return json({ allowed: false, reason: "already_spun", message: "You have already used your spin for this grade." }, 200, cors(env, request));
   }
 
   if (!activeWheel.length) {
-    return json({ allowed: false, reason: "all_spun", message: "All players have already been spun for this grade." }, 200, cors(env));
+    return json({ allowed: false, reason: "all_spun", message: "All players have already been spun for this grade." }, 200, cors(env, request));
   }
 
-  return json({ allowed: true, spinner, grade: g }, 200, cors(env));
+  return json({ allowed: true, spinner, grade: g }, 200, cors(env, request));
 }
 
 async function handleSpin(request, env) {
   const b = await request.json().catch(() => ({}));
   const g = grade(b.grade), p = pin(b.pin);
-  if (!g || !p) return json({ error: "Invalid grade or PIN." }, 400, cors(env));
+  if (!g || !p) return json({ error: "Invalid grade or PIN." }, 400, cors(env, request));
 
   await ensureTable(env.DB);
 
@@ -130,20 +134,20 @@ async function handleSpin(request, env) {
     "SELECT playhq_uid, name FROM members WHERE CAST(pin AS TEXT) = ?"
   ).bind(p).first();
 
-  if (!spinner) return json({ error: "PIN not found." }, 401, cors(env));
+  if (!spinner) return json({ error: "PIN not found." }, 401, cors(env, request));
 
   const alreadySpun = await env.DB.prepare(
     "SELECT 1 FROM wheel_spins WHERE LOWER(grade) = ? AND spinner_uid = ?"
   ).bind(g, spinner.playhq_uid).first();
-  if (alreadySpun) return json({ error: "You have already used your spin for this grade." }, 409, cors(env));
+  if (alreadySpun) return json({ error: "You have already used your spin for this grade." }, 409, cors(env, request));
 
   const fullRoster = await getFullRoster(env.DB, g);
   const spunUIDs = await getSpunUIDs(env.DB, g);
   const activeWheel = fullRoster.filter(p => !spunUIDs.has(p.playhq_uid));
 
-  if (!activeWheel.length) return json({ error: "No players remaining on the wheel." }, 409, cors(env));
+  if (!activeWheel.length) return json({ error: "No players remaining on the wheel." }, 409, cors(env, request));
   if (fullRoster.some(x => x.playhq_uid === spinner.playhq_uid)) {
-    return json({ error: "You are on the team sheet and cannot spin." }, 403, cors(env));
+    return json({ error: "You are on the team sheet and cannot spin." }, 403, cors(env, request));
   }
 
   const a = new Uint32Array(1);
@@ -168,18 +172,18 @@ async function handleSpin(request, env) {
       wheel_size: activeWheel.length
     },
     spin_duration_ms: SPIN_DURATION_MS
-  }, 200, cors(env));
+  }, 200, cors(env, request));
 }
 
 async function route(request, env) {
   const u = new URL(request.url);
   const path = u.pathname.replace(/\/$/, "");
 
-  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors(env) });
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors(env, request) });
   if (request.method === "GET" && path === "/api/state") return handleState(request, env);
   if (request.method === "GET" && path === "/api/history") {
     await ensureTable(env.DB);
-    return json({ history: await getAllHistory(env.DB) }, 200, cors(env));
+    return json({ history: await getAllHistory(env.DB) }, 200, cors(env, request));
   }
   if (request.method === "POST" && path === "/api/verify") return handleVerify(request, env);
   if (request.method === "POST" && path === "/api/spin") return handleSpin(request, env);
@@ -203,7 +207,7 @@ export default {
         message: e.message, 
         cause: e.cause ? e.cause.message : undefined,
         sql_error: e.db_error || undefined
-      }, 500, cors(env));
+      }, 500, cors(env, request));
     }
   }
 };
