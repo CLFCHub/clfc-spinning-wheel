@@ -197,7 +197,13 @@ export default {
       if (!env.DB) throw new Error("Database binding 'DB' is missing.");
       return await route(request, env);
     } catch (e) {
-      return json({ error: "Server error.", message: e.message, stack: e.stack }, 500, cors(env));
+      console.error(e);
+      return json({ 
+        error: "Server error.", 
+        message: e.message, 
+        cause: e.cause ? e.cause.message : undefined,
+        sql_error: e.db_error || undefined
+      }, 500, cors(env));
     }
   }
 };
