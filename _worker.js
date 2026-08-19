@@ -23,6 +23,23 @@ function pin(v) {
   return /^\d{4}$/.test(v) ? v : null;
 }
 
+async function ensureTable(db) {
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS wheel_spins (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      grade TEXT NOT NULL,
+      spinner_uid TEXT NOT NULL,
+      spinner_name TEXT NOT NULL,
+      winner_uid TEXT NOT NULL,
+      winner_name TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(grade, spinner_uid),
+      UNIQUE(grade, winner_uid)
+    )
+  `).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_wheel_spins_grade ON wheel_spins(grade)`).run();
+}
+
 async function getFullRoster(db, g) {
   const { results } = await db.prepare(
     "SELECT playhq_uid, name FROM roster_players WHERE LOWER(TRIM(grade)) = ? AND playhq_uid IS NOT NULL AND name IS NOT NULL"
@@ -31,35 +48,24 @@ async function getFullRoster(db, g) {
 }
 
 async function getSpunUIDs(db, g) {
-  try {
-    const { results } = await db.prepare(
-      "SELECT winner_uid FROM wheel_spins WHERE LOWER(grade) = ?"
-    ).bind(g).all();
-    return new Set((results || []).map(r => r.winner_uid));
-  } catch (e) {
-    console.error("Error fetching spun UIDs:", e);
-    return new Set();
-  }
+  const { results } = await db.prepare(
+    "SELECT winner_uid FROM wheel_spins WHERE LOWER(grade) = ?"
+  ).bind(g).all();
+  return new Set((results || []).map(r => r.winner_uid));
 }
 
 async function getAllHistory(db) {
-  try {
-    const { results } = await db.prepare(
-      "SELECT * FROM wheel_spins ORDER BY created_at ASC"
-    ).all();
-    return results || [];
-  } catch (e) {
-    console.error("Error fetching history:", e);
-    return [];
-  }
+  const { results } = await db.prepare(
+    "SELECT * FROM wheel_spins ORDER BY created_at ASC"
+  ).all();
+  return results || [];
 }
 
 async function handleState(request, env) {
   const g = grade(new URL(request.url).searchParams.get("grade"));
   if (!g) return json({ error: "Invalid grade." }, 400, cors(env));
 
-  if (!env.DB) return json({ error: "Database binding 'DB' is missing." }, 500, cors(env));
-
+  await ensureTable(env.DB);
   const fullRoster = await getFullRoster(env.DB, g);
   const spunUIDs = await getSpunUIDs(env.DB, g);
   const activeWheel = fullRoster.filter(p => !spunUIDs.has(p.playhq_uid));
@@ -70,8 +76,7 @@ async function handleState(request, env) {
     wheel: activeWheel,
     history,
     spin_duration_ms: SPIN_DURATION_MS,
-    roster_empty: fullRoster.length === 0,
-    debug: { roster_count: fullRoster.length, spun_count: spunUIDs.size }
+    roster_empty: fullRoster.length === 0
   }, 200, cors(env));
 }
 
@@ -80,8 +85,9 @@ async function handleVerify(request, env) {
   const g = grade(b.grade), p = pin(b.pin);
   if (!g || !p) return json({ allowed: false, message: "Enter a valid grade and 4-digit PIN." }, 400, cors(env));
 
-  if (!env.DB) return json({ allowed: false, message: "Database binding 'DB' is missing." }, 500, cors(env));
-
+  await ensureTable(env.DB);
+  
+  // PIN lookup in members table
   const spinner = await env.DB.prepare(
     "SELECT playhq_uid, name FROM members WHERE CAST(pin AS TEXT) = ?"
   ).bind(p).first();
@@ -118,7 +124,7 @@ async function handleSpin(request, env) {
   const g = grade(b.grade), p = pin(b.pin);
   if (!g || !p) return json({ error: "Invalid grade or PIN." }, 400, cors(env));
 
-  if (!env.DB) return json({ error: "Database binding 'DB' is missing." }, 500, cors(env));
+  await ensureTable(env.DB);
 
   const spinner = await env.DB.prepare(
     "SELECT playhq_uid, name FROM members WHERE CAST(pin AS TEXT) = ?"
@@ -167,12 +173,14 @@ async function handleSpin(request, env) {
 
 async function route(request, env) {
   const u = new URL(request.url);
-  const path = u.pathname.replace(/\/$/, ""); // Remove trailing slash
+  const path = u.pathname.replace(/\/$/, "");
 
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors(env) });
-  
   if (request.method === "GET" && path === "/api/state") return handleState(request, env);
-  if (request.method === "GET" && path === "/api/history") return json({ history: await getAllHistory(env.DB) }, 200, cors(env));
+  if (request.method === "GET" && path === "/api/history") {
+    await ensureTable(env.DB);
+    return json({ history: await getAllHistory(env.DB) }, 200, cors(env));
+  }
   if (request.method === "POST" && path === "/api/verify") return handleVerify(request, env);
   if (request.method === "POST" && path === "/api/spin") return handleSpin(request, env);
   
@@ -180,16 +188,16 @@ async function route(request, env) {
     return env.ASSETS.fetch(request);
   }
   
-  return json({ error: "Not found.", path: u.pathname }, 404, cors(env));
+  return json({ error: "Not found." }, 404, cors(env));
 }
 
 export default {
   async fetch(request, env) {
     try {
+      if (!env.DB) throw new Error("Database binding 'DB' is missing.");
       return await route(request, env);
     } catch (e) {
-      console.error(e);
-      return json({ error: "Server error.", message: e.message }, 500, cors(env));
+      return json({ error: "Server error.", message: e.message, stack: e.stack }, 500, cors(env));
     }
   }
 };
