@@ -1,0 +1,20 @@
+name = "clfc-spinning-wheel"
+main = "src/index.js"
+compatibility_date = "2026-08-19"
+
+[vars]
+ALLOWED_ORIGIN = "*"
+DEBUG = "false"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "clfc-hub-db"
+database_id = "199c7c5a-b202-4439-9401-4c2f27e33ea5"
+
+[[durable_objects.bindings]]
+name = "WHEEL_STATE"
+class_name = "WheelState"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["WheelState"]

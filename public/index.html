@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CLFC Spin Wheel</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;min-height:100%}
+body{min-height:100vh;font-family:Arial,sans-serif;color:#fff;background:radial-gradient(circle at 50% 25%,#292c35,#11131a 42%,#07080c 80%)}
+.app{width:min(1300px,94vw);margin:auto;padding:28px 0 60px}
+h1{text-align:center;font-size:clamp(28px,5vw,46px);letter-spacing:.1em;margin:0 0 18px}
+.grades{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:25px}
+.grade,.action,.admin-btn{border:0;border-radius:12px;padding:14px;font-weight:900;cursor:pointer}
+.grade{background:#1c1e25;color:white}.grade.active{outline:3px solid white}
+.layout{display:grid;grid-template-columns:minmax(300px,1fr) 380px;gap:28px}
+.panel{background:#111218dd;border:1px solid #ffffff1f;border-radius:20px;padding:20px;box-shadow:0 18px 50px #0008}
+.wheel-area{position:relative;width:min(70vw,650px);max-width:100%;aspect-ratio:1;margin:auto}
+.wheel{width:100%;height:100%;border-radius:50%;position:relative;overflow:hidden;border:12px solid #15161c;box-shadow:0 20px 50px #0009,inset 0 0 0 4px #ffffff25;transition:transform 3.2s cubic-bezier(.12,.78,.13,1);background:conic-gradient(#f44336 0 30deg,#ffca28 30deg 60deg,#43a047 60deg 90deg,#29b6f6 90deg 120deg,#7e57c2 120deg 150deg,#ec407a 150deg 180deg,#ff7043 180deg 210deg,#66bb6a 210deg 240deg,#26c6da 240deg 270deg,#5c6bc0 270deg 300deg,#ab47bc 300deg 330deg,#ffa726 330deg)}
+.divider{position:absolute;inset:0}.divider:after{content:"";position:absolute;left:50%;top:0;width:2px;height:50%;background:#ffffffbb;transform-origin:bottom}
+.label{position:absolute;left:50%;top:7%;width:43%;font-size:clamp(9px,1.4vw,15px);font-weight:900;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pointer{position:absolute;z-index:5;top:-7px;left:50%;transform:translateX(-50%);border-left:24px solid transparent;border-right:24px solid transparent;border-bottom:58px solid white;filter:drop-shadow(0 5px 4px #000)}
+.center{position:absolute;z-index:4;left:50%;top:50%;transform:translate(-50%,-50%);width:17%;aspect-ratio:1;border-radius:50%;background:#17181e;border:7px solid white}
+.controls{display:grid;gap:12px;margin-top:20px}
+.pin{width:100%;padding:14px;border-radius:10px;border:1px solid #555;background:#0d0e12;color:#fff;text-align:center;font-size:20px;letter-spacing:.2em}
+.action{background:#f4f4f4;color:#111}.action:disabled{opacity:.5;cursor:default}
+.payid-box{padding:14px;border-radius:12px;background:#1a2b23;border:1px solid #2e7d32;font-size:13px;line-height:1.5}
+.payid-box strong{color:#81c784}
+.cost{padding:14px;border-radius:12px;background:#272931;text-align:center}.cost input{margin-right:8px}
+.notice{text-align:center;min-height:24px;font-weight:700;color:#ff8a65}
+.admin-section{margin-top:20px;padding-top:15px;border-top:1px solid #ffffff1f;text-align:center}
+.admin-btn{background:#d32f2f;color:white;font-size:12px;padding:8px 16px}
+.result-list{display:grid;gap:8px;max-height:620px;overflow:auto}.result{padding:10px 12px;border-radius:10px;background:#24262e;font-size:14px}
+.empty-wheel{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#111218ee;font-size:22px;font-weight:bold;color:#ff5252;text-align:center;padding:20px}
+@media(max-width:850px){.layout{grid-template-columns:1fr}.wheel-area{width:min(88vw,600px)}}
+@media(max-width:520px){.grades{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="app">
+<h1>SPIN THE WHEEL</h1>
+<div id="grades" class="grades"></div>
+<div class="layout">
+<section class="panel">
+<div class="wheel-area">
+<div class="pointer"></div>
+<div id="wheel" class="wheel"></div>
+<div class="center"></div>
+<div id="emptyNotice" class="empty-wheel" hidden>No team named this week.</div>
+</div>
+<div class="controls">
+<input id="pin" class="pin" maxlength="4" inputmode="numeric" placeholder="ENTER 4-DIGIT PIN">
+<button id="verify" class="action">CHECK IF I CAN SPIN</button>
+<div id="payidBox" class="payid-box" hidden>
+Pay $5 via PayID to <strong>payment.payidme@gmail.com</strong>.<br>Use your full name as the payment reference.
+</div>
+<div id="cost" class="cost" hidden><label><input id="costCheck" type="checkbox"> I have completed the PayID transfer.</label></div>
+<button id="spin" class="action" disabled>SPIN</button>
+<div id="notice" class="notice"></div>
+<div class="admin-section">
+<button id="mockupBtn" class="admin-btn">⚙ Mock Up This Grade (Admin)</button>
+</div>
+</div>
+</section>
+<aside class="panel"><h2 id="resultsTitle">Spin results</h2><div id="results" class="result-list"></div></aside>
+</div>
+</div>
+<script>
+const API_BASE="";
+const grades=["league","reserves","colts","thirds"];
+let selected="league",players=[],rotation=0,verified=false,spinning=false;
+const $=x=>document.getElementById(x);
+const esc=x=>String(x).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
+async function api(path,opt){const r=await fetch(API_BASE+path,opt);const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||d.message||"Request failed");return d}
+function renderGrades(){$("grades").innerHTML=grades.map(g=>`<button class="grade ${g===selected?"active":""}" data-g="${g}">${g.toUpperCase()}</button>`).join("");document.querySelectorAll(".grade").forEach(b=>b.onclick=()=>{selected=b.dataset.g;verified=false;$("spin").disabled=true;$("cost").hidden=true;$("payidBox").hidden=true;renderGrades();load()})}
+function renderWheel(){
+  const n=players.length;
+  if(n===0){
+    $("wheel").innerHTML="";
+    $("emptyNotice").hidden=false;
+    $("verify").disabled=true;
+    $("pin").disabled=true;
+    return;
+  }
+  $("emptyNotice").hidden=true;
+  $("verify").disabled=false;
+  $("pin").disabled=false;
+  $("wheel").innerHTML=players.map((p,i)=>{const a=i*360/n;return `<div class="divider" style="transform:rotate(${a}deg)"><div class="label" style="transform:rotate(90deg)">${esc(p.name)}</div></div>`}).join("");
+}
+function history(h){$("resultsTitle").textContent=selected.toUpperCase()+" spin results";$("results").innerHTML=h.length?h.slice().reverse().map(r=>`<div class="result"><strong>${esc(r.spinner_name)}</strong> chose <strong>${esc(r.winner_name)}</strong><br><small style="opacity:.6">${esc(r.payment_ref)}</small></div>`).join(""):"<div style='opacity:.6'>No spins recorded yet.</div>"}
+async function load(){try{const d=await api("/api/state?grade="+selected);players=d.wheel||[];renderWheel();history(d.history||[]);if(!players.length){$("notice").textContent="No team named this week.";}else{$("notice").textContent="";}}catch(e){$("notice").textContent=e.message}}
+$("verify").onclick=async()=>{const p=$("pin").value.trim();if(!/^\d{4}$/.test(p))return $("notice").textContent="Enter a valid 4-digit PIN.";$("verify").disabled=true;try{const d=await api("/api/verify",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({grade:selected,pin:p})});verified=d.allowed;$("payidBox").hidden=!verified;$("cost").hidden=!verified;$("spin").disabled=!verified||!$("costCheck").checked;$("notice").textContent=verified?"PIN verified. Complete PayID transfer to unlock spin.":d.message}catch(e){verified=false;$("payidBox").hidden=true;$("cost").hidden=true;$("spin").disabled=true;$("notice").textContent=e.message}finally{$("verify").disabled=false}}
+$("costCheck").onchange=()=>{$("spin").disabled=!verified||!$("costCheck").checked};
+$("spin").onclick=async()=>{if(!verified||spinning)return;spinning=true;$("spin").disabled=true;$("verify").disabled=true;$("notice").textContent="The wheel is spinning...";try{const d=await api("/api/spin",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({grade:selected,pin:$("pin").value.trim()})});const r=d.result,n=r.wheel_size,seg=360/n,target=360-(r.winner_index*seg+seg/2),mod=((rotation%360)+360)%360,correction=((target-mod)+360)%360;rotation+=5*360+correction;$("wheel").style.transform=`rotate(${rotation}deg)`;await new Promise(x=>setTimeout(x,d.spin_duration_ms||3200));$("notice").textContent=`${r.spinner_name} chose ${r.winner_name}.`;verified=false;$("payidBox").hidden=true;$("cost").hidden=true;$("costCheck").checked=false;$("pin").value="";await load()}catch(e){$("notice").textContent=e.message}finally{spinning=false;$("verify").disabled=false;$("spin").disabled=true}};
+$("mockupBtn").onclick=async()=>{if(!confirm("Generate a random mock team sheet of 22 players for "+selected.toUpperCase()+"?"))return;try{const d=await api("/api/admin/mockup",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({grade:selected})});alert(d.message);await load()}catch(e){alert(e.message)}};
+renderGrades();load();
+</script>
+</body>
+</html>
