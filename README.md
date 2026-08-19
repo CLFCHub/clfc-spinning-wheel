@@ -1,32 +1,42 @@
 # CLFC Spinning Wheel
 
-Production Cloudflare Worker & Frontend for CLFC Spinning Wheel raffle system tied to Cloudflare D1.
+Production-ready Cloudflare Worker + D1 spinning-wheel application for CLFC.
+
+## Repository Structure
+
+```text
+CLFC-Spin-Wheel/
+├── index.js                    ← Cloudflare Worker logic
+├── index.html                  ← Frontend dashboard
+├── wrangler.toml               ← Cloudflare configuration
+├── package.json                ← Dependencies and scripts
+├── README.md                   ← This file
+└── sql/
+    ├── verify.sql              ← Schema verification checks
+    └── create-wheel-spins.sql  ← Database setup
+```
+
+## Setup & Deployment
+
+1. **Database Initialization**: Run the following SQL in your Cloudflare D1 console to create the history table:
+   ```bash
+   npx wrangler d1 execute clfchub --remote --file=sql/create-wheel-spins.sql
+   ```
+
+2. **Schema Verification**: Run the verification script to ensure your `members` and `roster_players` tables are correct:
+   ```bash
+   npx wrangler d1 execute clfchub --remote --file=sql/verify.sql
+   ```
+
+3. **Deployment**:
+   - Link this repository to your Cloudflare account.
+   - Ensure the D1 database `199c7c5a-b202-4439-9401-4c2f27e33ea5` is bound as `DB`.
+   - Deploy via Cloudflare Pages or `npm run deploy`.
 
 ## Features
 
-- **Direct D1 Integration**: Reads strictly from the `roster_players` table. If empty, correctly displays **"No team named this week."**
-- **Admin Mock-Up Trigger**: Allows you to instantly populate any grade's wheel with 22 random members from your D1 `members` table.
-- **Self-Wheel Prevention**: Verifies the spinner's PIN against D1 and blocks them from spinning if their UID is currently on that grade's wheel.
-- **PayID Payment Flow**: Directs payments to `payment.payidme@gmail.com` with name referencing before unlocking the spin.
-- **Atomic Concurrency & History**: Logs all spin histories and removes winning players from the roster instantly.
-
-## Deployment
-
-1. Clone or connect repository in Cloudflare Workers & Pages.
-2. Ensure your D1 database (`199c7c5a-b202-4439-9401-4c2f27e33ea5`) is bound to the Worker as `DB`.
-3. **Database Setup**: Run the following SQL in your D1 console to create the history table:
-
-```sql
-CREATE TABLE IF NOT EXISTS spin_history (
-    id TEXT PRIMARY KEY,
-    grade TEXT NOT NULL,
-    spinner_uid TEXT NOT NULL,
-    spinner_name TEXT NOT NULL,
-    winner_uid TEXT NOT NULL,
-    winner_name TEXT NOT NULL,
-    payment_ref TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-4. Deploy!
+- **D1 Relational Logic**: PIN lookup in `members`, wheel population from `roster_players`.
+- **Atomic Concurrency**: One-spin-per-user and one-win-per-player enforced via D1 unique constraints.
+- **4-Grade Dashboard**: Persistent history columns for League, Reserves, Colts, and Thirds.
+- **PayID Ready**: Integrated instructions for payments to `payment.payidme@gmail.com`.
+- **Non-Destructive**: Winners are filtered out of the wheel but remain in the roster table.

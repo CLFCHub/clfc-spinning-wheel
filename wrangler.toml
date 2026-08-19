@@ -1,11 +1,11 @@
 name = "clfc-wheel"
-main = "src/index.js"
+main = "index.js"
 compatibility_date = "2026-08-19"
 
 [assets]
-directory = "./public"
+directory = "."
 
 [[d1_databases]]
 binding = "DB"
-database_name = "clfc-hub-db"
+database_name = "clfchub"
 database_id = "199c7c5a-b202-4439-9401-4c2f27e33ea5"

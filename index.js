@@ -25,22 +25,22 @@ function pin(v) {
 
 async function getFullRoster(db, g) {
   const { results } = await db.prepare(
-    "SELECT playerhq_uid, name FROM roster_players WHERE LOWER(grade) = ?"
+    "SELECT playhq_uid, name FROM roster_players WHERE LOWER(TRIM(grade)) = ? AND playhq_uid IS NOT NULL AND name IS NOT NULL"
   ).bind(g).all();
   return results || [];
 }
 
 async function getSpunUIDs(db, g) {
   const { results } = await db.prepare(
-    "SELECT winner_uid FROM spin_history WHERE LOWER(grade) = ?"
+    "SELECT winner_uid FROM wheel_spins WHERE LOWER(grade) = ?"
   ).bind(g).all();
   return new Set((results || []).map(r => r.winner_uid));
 }
 
-async function getHistory(db, g) {
+async function getAllHistory(db) {
   const { results } = await db.prepare(
-    "SELECT * FROM spin_history WHERE LOWER(grade) = ? ORDER BY created_at ASC"
-  ).bind(g).all();
+    "SELECT * FROM wheel_spins ORDER BY created_at ASC"
+  ).all();
   return results || [];
 }
 
@@ -50,8 +50,8 @@ async function handleState(request, env) {
 
   const fullRoster = await getFullRoster(env.DB, g);
   const spunUIDs = await getSpunUIDs(env.DB, g);
-  const activeWheel = fullRoster.filter(p => !spunUIDs.has(p.playerhq_uid));
-  const history = await getHistory(env.DB, g);
+  const activeWheel = fullRoster.filter(p => !spunUIDs.has(p.playhq_uid));
+  const history = await getAllHistory(env.DB);
 
   return json({
     grade: g,
@@ -67,8 +67,9 @@ async function handleVerify(request, env) {
   const g = grade(b.grade), p = pin(b.pin);
   if (!g || !p) return json({ allowed: false, message: "Enter a valid grade and 4-digit PIN." }, 400, cors(env));
 
+  // PIN lookup in members table - strictly as string
   const spinner = await env.DB.prepare(
-    "SELECT playerhq_uid, name FROM members WHERE pin = ?"
+    "SELECT playhq_uid, name FROM members WHERE CAST(pin AS TEXT) = ?"
   ).bind(p).first();
 
   if (!spinner) return json({ allowed: false, message: "PIN not found in members list." }, 401, cors(env));
@@ -77,15 +78,15 @@ async function handleVerify(request, env) {
   if (!fullRoster.length) return json({ allowed: false, reason: "empty", message: "No teams named yet." }, 200, cors(env));
 
   const spunUIDs = await getSpunUIDs(env.DB, g);
-  const activeWheel = fullRoster.filter(p => !spunUIDs.has(p.playerhq_uid));
+  const activeWheel = fullRoster.filter(p => !spunUIDs.has(p.playhq_uid));
 
-  if (fullRoster.some(x => x.playerhq_uid === spinner.playerhq_uid)) {
-    return json({ allowed: false, reason: "self_on_wheel", message: "You are on the team sheet for this grade and cannot spin this wheel." }, 200, cors(env));
+  if (fullRoster.some(x => x.playhq_uid === spinner.playhq_uid)) {
+    return json({ allowed: false, reason: "self_on_wheel", message: "You can't spin this wheel because your name is on it." }, 200, cors(env));
   }
 
   const alreadySpun = await env.DB.prepare(
-    "SELECT 1 FROM spin_history WHERE LOWER(grade) = ? AND spinner_uid = ?"
-  ).bind(g, spinner.playerhq_uid).first();
+    "SELECT 1 FROM wheel_spins WHERE LOWER(grade) = ? AND spinner_uid = ?"
+  ).bind(g, spinner.playhq_uid).first();
 
   if (alreadySpun) {
     return json({ allowed: false, reason: "already_spun", message: "You have already used your spin for this grade." }, 200, cors(env));
@@ -104,22 +105,22 @@ async function handleSpin(request, env) {
   if (!g || !p) return json({ error: "Invalid grade or PIN." }, 400, cors(env));
 
   const spinner = await env.DB.prepare(
-    "SELECT playerhq_uid, name FROM members WHERE pin = ?"
+    "SELECT playhq_uid, name FROM members WHERE CAST(pin AS TEXT) = ?"
   ).bind(p).first();
 
   if (!spinner) return json({ error: "PIN not found." }, 401, cors(env));
 
   const alreadySpun = await env.DB.prepare(
-    "SELECT 1 FROM spin_history WHERE LOWER(grade) = ? AND spinner_uid = ?"
-  ).bind(g, spinner.playerhq_uid).first();
+    "SELECT 1 FROM wheel_spins WHERE LOWER(grade) = ? AND spinner_uid = ?"
+  ).bind(g, spinner.playhq_uid).first();
   if (alreadySpun) return json({ error: "You have already used your spin for this grade." }, 409, cors(env));
 
   const fullRoster = await getFullRoster(env.DB, g);
   const spunUIDs = await getSpunUIDs(env.DB, g);
-  const activeWheel = fullRoster.filter(p => !spunUIDs.has(p.playerhq_uid));
+  const activeWheel = fullRoster.filter(p => !spunUIDs.has(p.playhq_uid));
 
   if (!activeWheel.length) return json({ error: "No players remaining on the wheel." }, 409, cors(env));
-  if (fullRoster.some(x => x.playerhq_uid === spinner.playerhq_uid)) {
+  if (fullRoster.some(x => x.playhq_uid === spinner.playhq_uid)) {
     return json({ error: "You are on the team sheet and cannot spin." }, 403, cors(env));
   }
 
@@ -128,20 +129,18 @@ async function handleSpin(request, env) {
   const i = Math.floor((a[0] / 4294967296) * activeWheel.length);
   const winner = activeWheel[i];
 
-  const recordId = crypto.randomUUID();
   const createdAt = new Date().toISOString();
-  const paymentRef = `${spinner.name} (PayID)`;
 
   await env.DB.prepare(
-    "INSERT INTO spin_history (id, grade, spinner_uid, spinner_name, winner_uid, winner_name, payment_ref, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-  ).bind(recordId, g, spinner.playerhq_uid, spinner.name, winner.playerhq_uid, winner.name, paymentRef, createdAt).run();
+    "INSERT INTO wheel_spins (grade, spinner_uid, spinner_name, winner_uid, winner_name, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+  ).bind(g, spinner.playhq_uid, spinner.name, winner.playhq_uid, winner.name, createdAt).run();
 
   return json({
     success: true,
     result: {
-      spinner_uid: spinner.playerhq_uid,
+      spinner_uid: spinner.playhq_uid,
       spinner_name: spinner.name,
-      winner_uid: winner.playerhq_uid,
+      winner_uid: winner.playhq_uid,
       winner_name: winner.name,
       winner_index: i,
       wheel_size: activeWheel.length
@@ -154,10 +153,10 @@ async function route(request, env) {
   const u = new URL(request.url);
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors(env) });
   if (request.method === "GET" && u.pathname === "/api/state") return handleState(request, env);
+  if (request.method === "GET" && u.pathname === "/api/history") return json({ history: await getAllHistory(env.DB) }, 200, cors(env));
   if (request.method === "POST" && u.pathname === "/api/verify") return handleVerify(request, env);
   if (request.method === "POST" && u.pathname === "/api/spin") return handleSpin(request, env);
   
-  // Fallback to assets
   if (env.ASSETS) {
     return env.ASSETS.fetch(request);
   }
