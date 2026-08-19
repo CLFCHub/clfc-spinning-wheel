@@ -10,7 +10,7 @@ body{min-height:100vh;font-family:Arial,sans-serif;color:#fff;background:radial-
 .app{width:min(1300px,94vw);margin:auto;padding:28px 0 60px}
 h1{text-align:center;font-size:clamp(28px,5vw,46px);letter-spacing:.1em;margin:0 0 18px}
 .grades{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:25px}
-.grade,.action,.admin-btn{border:0;border-radius:12px;padding:14px;font-weight:900;cursor:pointer}
+.grade,.action{border:0;border-radius:12px;padding:14px;font-weight:900;cursor:pointer}
 .grade{background:#1c1e25;color:white}.grade.active{outline:3px solid white}
 .layout{display:grid;grid-template-columns:minmax(300px,1fr) 380px;gap:28px}
 .panel{background:#111218dd;border:1px solid #ffffff1f;border-radius:20px;padding:20px;box-shadow:0 18px 50px #0008}
@@ -27,8 +27,6 @@ h1{text-align:center;font-size:clamp(28px,5vw,46px);letter-spacing:.1em;margin:0
 .payid-box strong{color:#81c784}
 .cost{padding:14px;border-radius:12px;background:#272931;text-align:center}.cost input{margin-right:8px}
 .notice{text-align:center;min-height:24px;font-weight:700;color:#ff8a65}
-.admin-section{margin-top:20px;padding-top:15px;border-top:1px solid #ffffff1f;text-align:center}
-.admin-btn{background:#d32f2f;color:white;font-size:12px;padding:8px 16px}
 .result-list{display:grid;gap:8px;max-height:620px;overflow:auto}.result{padding:10px 12px;border-radius:10px;background:#24262e;font-size:14px}
 .empty-wheel{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#111218ee;font-size:22px;font-weight:bold;color:#ff5252;text-align:center;padding:20px}
 @media(max-width:850px){.layout{grid-template-columns:1fr}.wheel-area{width:min(88vw,600px)}}
@@ -45,7 +43,7 @@ h1{text-align:center;font-size:clamp(28px,5vw,46px);letter-spacing:.1em;margin:0
 <div class="pointer"></div>
 <div id="wheel" class="wheel"></div>
 <div class="center"></div>
-<div id="emptyNotice" class="empty-wheel" hidden>No team named this week.</div>
+<div id="emptyNotice" class="empty-wheel" hidden>No teams named yet.</div>
 </div>
 <div class="controls">
 <input id="pin" class="pin" maxlength="4" inputmode="numeric" placeholder="ENTER 4-DIGIT PIN">
@@ -53,12 +51,9 @@ h1{text-align:center;font-size:clamp(28px,5vw,46px);letter-spacing:.1em;margin:0
 <div id="payidBox" class="payid-box" hidden>
 Pay $5 via PayID to <strong>payment.payidme@gmail.com</strong>.<br>Use your full name as the payment reference.
 </div>
-<div id="cost" class="cost" hidden><label><input id="costCheck" type="checkbox"> I have completed the PayID transfer.</label></div>
+<div id="cost" class="cost" hidden><label><input id="costCheck" type="checkbox"> I confirm I owe $5 and have completed the PayID transfer.</label></div>
 <button id="spin" class="action" disabled>SPIN</button>
 <div id="notice" class="notice"></div>
-<div class="admin-section">
-<button id="mockupBtn" class="admin-btn">⚙ Mock Up This Grade (Admin)</button>
-</div>
 </div>
 </section>
 <aside class="panel"><h2 id="resultsTitle">Spin results</h2><div id="results" class="result-list"></div></aside>
@@ -86,12 +81,11 @@ function renderWheel(){
   $("pin").disabled=false;
   $("wheel").innerHTML=players.map((p,i)=>{const a=i*360/n;return `<div class="divider" style="transform:rotate(${a}deg)"><div class="label" style="transform:rotate(90deg)">${esc(p.name)}</div></div>`}).join("");
 }
-function history(h){$("resultsTitle").textContent=selected.toUpperCase()+" spin results";$("results").innerHTML=h.length?h.slice().reverse().map(r=>`<div class="result"><strong>${esc(r.spinner_name)}</strong> chose <strong>${esc(r.winner_name)}</strong><br><small style="opacity:.6">${esc(r.payment_ref)}</small></div>`).join(""):"<div style='opacity:.6'>No spins recorded yet.</div>"}
-async function load(){try{const d=await api("/api/state?grade="+selected);players=d.wheel||[];renderWheel();history(d.history||[]);if(!players.length){$("notice").textContent="No team named this week.";}else{$("notice").textContent="";}}catch(e){$("notice").textContent=e.message}}
+function history(h){$("resultsTitle").textContent=selected.toUpperCase()+" RESULTS";$("results").innerHTML=h.length?h.slice().reverse().map(x=>`<div class="result"><strong>${esc(x.spinner_name)}</strong> chose <strong>${esc(x.winner_name)}</strong></div>`).join(""):"<div style='opacity:.6'>No spins recorded yet.</div>"}
+async function load(){try{const d=await api("/api/state?grade="+selected);players=d.wheel||[];renderWheel();history(d.history||[]);if(d.roster_empty){$("notice").textContent="No teams named yet.";}else{$("notice").textContent="";}}catch(e){$("notice").textContent=e.message}}
 $("verify").onclick=async()=>{const p=$("pin").value.trim();if(!/^\d{4}$/.test(p))return $("notice").textContent="Enter a valid 4-digit PIN.";$("verify").disabled=true;try{const d=await api("/api/verify",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({grade:selected,pin:p})});verified=d.allowed;$("payidBox").hidden=!verified;$("cost").hidden=!verified;$("spin").disabled=!verified||!$("costCheck").checked;$("notice").textContent=verified?"PIN verified. Complete PayID transfer to unlock spin.":d.message}catch(e){verified=false;$("payidBox").hidden=true;$("cost").hidden=true;$("spin").disabled=true;$("notice").textContent=e.message}finally{$("verify").disabled=false}}
 $("costCheck").onchange=()=>{$("spin").disabled=!verified||!$("costCheck").checked};
 $("spin").onclick=async()=>{if(!verified||spinning)return;spinning=true;$("spin").disabled=true;$("verify").disabled=true;$("notice").textContent="The wheel is spinning...";try{const d=await api("/api/spin",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({grade:selected,pin:$("pin").value.trim()})});const r=d.result,n=r.wheel_size,seg=360/n,target=360-(r.winner_index*seg+seg/2),mod=((rotation%360)+360)%360,correction=((target-mod)+360)%360;rotation+=5*360+correction;$("wheel").style.transform=`rotate(${rotation}deg)`;await new Promise(x=>setTimeout(x,d.spin_duration_ms||3200));$("notice").textContent=`${r.spinner_name} chose ${r.winner_name}.`;verified=false;$("payidBox").hidden=true;$("cost").hidden=true;$("costCheck").checked=false;$("pin").value="";await load()}catch(e){$("notice").textContent=e.message}finally{spinning=false;$("verify").disabled=false;$("spin").disabled=true}};
-$("mockupBtn").onclick=async()=>{if(!confirm("Generate a random mock team sheet of 22 players for "+selected.toUpperCase()+"?"))return;try{const d=await api("/api/admin/mockup",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({grade:selected})});alert(d.message);await load()}catch(e){alert(e.message)}};
 renderGrades();load();
 </script>
 </body>
