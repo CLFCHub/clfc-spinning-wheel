@@ -31,22 +31,34 @@ async function getFullRoster(db, g) {
 }
 
 async function getSpunUIDs(db, g) {
-  const { results } = await db.prepare(
-    "SELECT winner_uid FROM wheel_spins WHERE LOWER(grade) = ?"
-  ).bind(g).all();
-  return new Set((results || []).map(r => r.winner_uid));
+  try {
+    const { results } = await db.prepare(
+      "SELECT winner_uid FROM wheel_spins WHERE LOWER(grade) = ?"
+    ).bind(g).all();
+    return new Set((results || []).map(r => r.winner_uid));
+  } catch (e) {
+    console.error("Error fetching spun UIDs:", e);
+    return new Set();
+  }
 }
 
 async function getAllHistory(db) {
-  const { results } = await db.prepare(
-    "SELECT * FROM wheel_spins ORDER BY created_at ASC"
-  ).all();
-  return results || [];
+  try {
+    const { results } = await db.prepare(
+      "SELECT * FROM wheel_spins ORDER BY created_at ASC"
+    ).all();
+    return results || [];
+  } catch (e) {
+    console.error("Error fetching history:", e);
+    return [];
+  }
 }
 
 async function handleState(request, env) {
   const g = grade(new URL(request.url).searchParams.get("grade"));
   if (!g) return json({ error: "Invalid grade." }, 400, cors(env));
+
+  if (!env.DB) return json({ error: "Database binding 'DB' is missing." }, 500, cors(env));
 
   const fullRoster = await getFullRoster(env.DB, g);
   const spunUIDs = await getSpunUIDs(env.DB, g);
@@ -58,7 +70,8 @@ async function handleState(request, env) {
     wheel: activeWheel,
     history,
     spin_duration_ms: SPIN_DURATION_MS,
-    roster_empty: fullRoster.length === 0
+    roster_empty: fullRoster.length === 0,
+    debug: { roster_count: fullRoster.length, spun_count: spunUIDs.size }
   }, 200, cors(env));
 }
 
@@ -67,7 +80,8 @@ async function handleVerify(request, env) {
   const g = grade(b.grade), p = pin(b.pin);
   if (!g || !p) return json({ allowed: false, message: "Enter a valid grade and 4-digit PIN." }, 400, cors(env));
 
-  // PIN lookup in members table - strictly as string
+  if (!env.DB) return json({ allowed: false, message: "Database binding 'DB' is missing." }, 500, cors(env));
+
   const spinner = await env.DB.prepare(
     "SELECT playhq_uid, name FROM members WHERE CAST(pin AS TEXT) = ?"
   ).bind(p).first();
@@ -103,6 +117,8 @@ async function handleSpin(request, env) {
   const b = await request.json().catch(() => ({}));
   const g = grade(b.grade), p = pin(b.pin);
   if (!g || !p) return json({ error: "Invalid grade or PIN." }, 400, cors(env));
+
+  if (!env.DB) return json({ error: "Database binding 'DB' is missing." }, 500, cors(env));
 
   const spinner = await env.DB.prepare(
     "SELECT playhq_uid, name FROM members WHERE CAST(pin AS TEXT) = ?"
@@ -151,17 +167,20 @@ async function handleSpin(request, env) {
 
 async function route(request, env) {
   const u = new URL(request.url);
+  const path = u.pathname.replace(/\/$/, ""); // Remove trailing slash
+
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors(env) });
-  if (request.method === "GET" && u.pathname === "/api/state") return handleState(request, env);
-  if (request.method === "GET" && u.pathname === "/api/history") return json({ history: await getAllHistory(env.DB) }, 200, cors(env));
-  if (request.method === "POST" && u.pathname === "/api/verify") return handleVerify(request, env);
-  if (request.method === "POST" && u.pathname === "/api/spin") return handleSpin(request, env);
+  
+  if (request.method === "GET" && path === "/api/state") return handleState(request, env);
+  if (request.method === "GET" && path === "/api/history") return json({ history: await getAllHistory(env.DB) }, 200, cors(env));
+  if (request.method === "POST" && path === "/api/verify") return handleVerify(request, env);
+  if (request.method === "POST" && path === "/api/spin") return handleSpin(request, env);
   
   if (env.ASSETS) {
     return env.ASSETS.fetch(request);
   }
   
-  return json({ error: "Not found." }, 404, cors(env));
+  return json({ error: "Not found.", path: u.pathname }, 404, cors(env));
 }
 
 export default {
@@ -170,7 +189,7 @@ export default {
       return await route(request, env);
     } catch (e) {
       console.error(e);
-      return json({ error: "Server error." }, 500, cors(env));
+      return json({ error: "Server error.", message: e.message }, 500, cors(env));
     }
   }
 };
