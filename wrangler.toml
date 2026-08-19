@@ -1,4 +1,4 @@
-name = "clfc-wheel"
+name = "clfc-spinning-wheel"
 main = "_worker.js"
 compatibility_date = "2026-08-19"
 
