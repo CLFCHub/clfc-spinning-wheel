@@ -16,8 +16,8 @@ h1{text-align:center;font-size:clamp(28px,5vw,46px);letter-spacing:.1em;margin:0
 .panel{background:#111218dd;border:1px solid #ffffff1f;border-radius:20px;padding:20px;box-shadow:0 18px 50px #0008}
 .wheel-area{position:relative;width:min(70vw,650px);max-width:100%;aspect-ratio:1;margin:auto}
 .wheel{width:100%;height:100%;border-radius:50%;position:relative;overflow:hidden;border:12px solid #15161c;box-shadow:0 20px 50px #0009,inset 0 0 0 4px #ffffff25;transition:transform 3.2s cubic-bezier(.12,.78,.13,1);background:conic-gradient(#f44336 0 30deg,#ffca28 30deg 60deg,#43a047 60deg 90deg,#29b6f6 90deg 120deg,#7e57c2 120deg 150deg,#ec407a 150deg 180deg,#ff7043 180deg 210deg,#66bb6a 210deg 240deg,#26c6da 240deg 270deg,#5c6bc0 270deg 300deg,#ab47bc 300deg 330deg,#ffa726 330deg)}
-.divider{position:absolute;inset:0}.divider:after{content:"";position:absolute;left:50%;top:0;width:2px;height:50%;background:#ffffffbb;transform-origin:bottom}
-.label{position:absolute;left:50%;top:7%;width:43%;font-size:clamp(9px,1.4vw,15px);font-weight:900;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.divider{position:absolute;inset:0;width:100%;height:100%}.divider:after{content:"";position:absolute;left:50%;top:0;width:2px;height:50%;background:#ffffff44;transform-origin:bottom}
+.label{position:absolute;left:50%;top:50%;width:50%;height:40px;margin-top:-20px;transform-origin:left center;padding-left:60px;display:flex;align-items:center;font-size:clamp(10px,1.6vw,16px);font-weight:900;color:white;text-shadow:0 1px 4px #000}
 .pointer{position:absolute;z-index:5;top:-7px;left:50%;transform:translateX(-50%);border-left:24px solid transparent;border-right:24px solid transparent;border-bottom:58px solid white;filter:drop-shadow(0 5px 4px #000)}
 .center{position:absolute;z-index:4;left:50%;top:50%;transform:translate(-50%,-50%);width:17%;aspect-ratio:1;border-radius:50%;background:#17181e;border:7px solid white}
 .controls{display:grid;gap:12px;margin-top:20px}
@@ -84,7 +84,7 @@ function renderWheel(){
   $("emptyNotice").classList.remove("active");
   $("verify").disabled=false;
   $("pin").disabled=false;
-  $("wheel").innerHTML=players.map((p,i)=>{const a=i*360/n;return `<div class="divider" style="transform:rotate(${a}deg)"><div class="label" style="transform:rotate(90deg)">${esc(p.name)}</div></div>`}).join("");
+  $("wheel").innerHTML=players.map((p,i)=>{const a=i*360/n+180/n;return `<div class="divider" style="transform:rotate(${i*360/n}deg)"></div><div class="label" style="transform:rotate(${a-90}deg)">${esc(p.name)}</div>`}).join("");
 }
 function historyUI(h){
   $("resultsTitle").textContent=selected.toUpperCase()+" RESULTS";
