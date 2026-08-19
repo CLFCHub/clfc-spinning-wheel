@@ -156,6 +156,12 @@ async function route(request, env) {
   if (request.method === "GET" && u.pathname === "/api/state") return handleState(request, env);
   if (request.method === "POST" && u.pathname === "/api/verify") return handleVerify(request, env);
   if (request.method === "POST" && u.pathname === "/api/spin") return handleSpin(request, env);
+  
+  // Fallback to assets
+  if (env.ASSETS) {
+    return env.ASSETS.fetch(request);
+  }
+  
   return json({ error: "Not found." }, 404, cors(env));
 }
 
