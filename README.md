@@ -38,5 +38,5 @@ CLFC-Spin-Wheel/
 - **D1 Relational Logic**: PIN lookup in `members`, wheel population from `roster_players`.
 - **Atomic Concurrency**: One-spin-per-user and one-win-per-player enforced via D1 unique constraints.
 - **4-Grade Dashboard**: Persistent history columns for League, Reserves, Colts, and Thirds.
-- **PayID Ready**: Integrated instructions for payments to `payment.payidme@gmail.com`.
+- **Acknowledgement Check**: Integrated acknowledgement for the $5 spin fee.
 - **Non-Destructive**: Winners are filtered out of the wheel but remain in the roster table.

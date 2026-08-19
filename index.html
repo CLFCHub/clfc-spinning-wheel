@@ -23,8 +23,6 @@ h1{text-align:center;font-size:clamp(28px,5vw,46px);letter-spacing:.1em;margin:0
 .controls{display:grid;gap:12px;margin-top:20px}
 .pin{width:100%;padding:14px;border-radius:10px;border:1px solid #555;background:#0d0e12;color:#fff;text-align:center;font-size:20px;letter-spacing:.2em}
 .action{background:#f4f4f4;color:#111}.action:disabled{opacity:.5;cursor:default}
-.payid-box{padding:14px;border-radius:12px;background:#1a2b23;border:1px solid #2e7d32;font-size:13px;line-height:1.5}
-.payid-box strong{color:#81c784}
 .cost{padding:14px;border-radius:12px;background:#272931;text-align:center}.cost input{margin-right:8px}
 .notice{text-align:center;min-height:24px;font-weight:700;color:#ff8a65}
 .result-list{display:grid;gap:8px;max-height:620px;overflow:auto}.result{padding:10px 12px;border-radius:10px;background:#24262e;font-size:14px}
@@ -52,9 +50,6 @@ h1{text-align:center;font-size:clamp(28px,5vw,46px);letter-spacing:.1em;margin:0
 <div class="controls">
 <input id="pin" class="pin" maxlength="4" inputmode="numeric" placeholder="ENTER 4-DIGIT PIN">
 <button id="verify" class="action">CHECK IF I CAN SPIN</button>
-<div id="payidBox" class="payid-box" hidden>
-Pay $5 via PayID to <strong>payment.payidme@gmail.com</strong>.<br>Use your full name as the payment reference.
-</div>
 <div id="cost" class="cost" hidden><label><input id="costCheck" type="checkbox"> I understand this costs $5 to spin.</label></div>
 <button id="spin" class="action" disabled>SPIN</button>
 <div id="notice" class="notice"></div>
@@ -71,7 +66,7 @@ let selected="league",players=[],rotation=0,verified=false,spinning=false;
 const $=x=>document.getElementById(x);
 const esc=x=>String(x).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
 async function api(path,opt){const r=await fetch(API_BASE+path,opt);const d=await r.json().catch(()=>({}));if(!r.ok){const msg = d.message ? `${d.error} (${d.message})` : (d.error || "Request failed"); throw Error(msg);}return d}
-function renderGrades(){$("grades").innerHTML=grades.map(g=>`<button class="grade ${g===selected?"active":""}" data-g="${g}">${g.toUpperCase()}</button>`).join("");document.querySelectorAll(".grade").forEach(b=>b.onclick=()=>{selected=b.dataset.g;verified=false;$("spin").disabled=true;$("cost").hidden=true;$("payidBox").hidden=true;renderGrades();load()})}
+function renderGrades(){$("grades").innerHTML=grades.map(g=>`<button class="grade ${g===selected?"active":""}" data-g="${g}">${g.toUpperCase()}</button>`).join("");document.querySelectorAll(".grade").forEach(b=>b.onclick=()=>{selected=b.dataset.g;verified=false;$("spin").disabled=true;$("cost").hidden=true;renderGrades();load()})}
 function renderWheel(){
   const n=players.length;
   if(n===0){
@@ -98,9 +93,9 @@ function historyUI(h){
   }).join("");
 }
 async function load(){try{const d=await api("/api/state?grade="+selected);players=d.wheel||[];renderWheel();historyUI(d.history||[]);if(d.roster_empty){$("notice").textContent="No teams named yet.";}else{$("notice").textContent="";}}catch(e){$("notice").textContent=e.message}}
-$("verify").onclick=async()=>{const p=$("pin").value.trim();if(!/^\d{4}$/.test(p))return $("notice").textContent="Enter a valid 4-digit PIN.";$("verify").disabled=true;try{const d=await api("/api/verify",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({grade:selected,pin:p})});verified=d.allowed;$("payidBox").hidden=!verified;$("cost").hidden=!verified;$("spin").disabled=!verified||!$("costCheck").checked;$("notice").textContent=verified?"PIN verified. Acknowledgement required to unlock spin.":d.message}catch(e){verified=false;$("payidBox").hidden=true;$("cost").hidden=true;$("spin").disabled=true;$("notice").textContent=e.message}finally{$("verify").disabled=false}}
+$("verify").onclick=async()=>{const p=$("pin").value.trim();if(!/^\d{4}$/.test(p))return $("notice").textContent="Enter a valid 4-digit PIN.";$("verify").disabled=true;try{const d=await api("/api/verify",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({grade:selected,pin:p})});verified=d.allowed;$("cost").hidden=!verified;$("spin").disabled=!verified||!$("costCheck").checked;$("notice").textContent=verified?"PIN verified. Acknowledgement required to unlock spin.":d.message}catch(e){verified=false;$("cost").hidden=true;$("spin").disabled=true;$("notice").textContent=e.message}finally{$("verify").disabled=false}}
 $("costCheck").onchange=()=>{$("spin").disabled=!verified||!$("costCheck").checked};
-$("spin").onclick=async()=>{if(!verified||spinning)return;spinning=true;$("spin").disabled=true;$("verify").disabled=true;$("notice").textContent="The wheel is spinning...";try{const d=await api("/api/spin",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({grade:selected,pin:$("pin").value.trim()})});const r=d.result,n=r.wheel_size,seg=360/n,target=360-(r.winner_index*seg+seg/2),mod=((rotation%360)+360)%360,correction=((target-mod)+360)%360;rotation+=5*360+correction;$("wheel").style.transform=`rotate(${rotation}deg)`;await new Promise(x=>setTimeout(x,d.spin_duration_ms||3200));$("notice").textContent=`${r.spinner_name} chose ${r.winner_name}.`;verified=false;$("payidBox").hidden=true;$("cost").hidden=true;$("costCheck").checked=false;$("pin").value="";await load()}catch(e){$("notice").textContent=e.message}finally{spinning=false;$("verify").disabled=false;$("spin").disabled=true}};
+$("spin").onclick=async()=>{if(!verified||spinning)return;spinning=true;$("spin").disabled=true;$("verify").disabled=true;$("notice").textContent="The wheel is spinning...";try{const d=await api("/api/spin",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({grade:selected,pin:$("pin").value.trim()})});const r=d.result,n=r.wheel_size,seg=360/n,target=360-(r.winner_index*seg+seg/2),mod=((rotation%360)+360)%360,correction=((target-mod)+360)%360;rotation+=5*360+correction;$("wheel").style.transform=`rotate(${rotation}deg)`;await new Promise(x=>setTimeout(x,d.spin_duration_ms||3200));$("notice").textContent=`${r.spinner_name} chose ${r.winner_name}.`;verified=false;$("cost").hidden=true;$("costCheck").checked=false;$("pin").value="";await load()}catch(e){$("notice").textContent=e.message}finally{spinning=false;$("verify").disabled=false;$("spin").disabled=true}};
 renderGrades();load();
 </script>
 </body>
