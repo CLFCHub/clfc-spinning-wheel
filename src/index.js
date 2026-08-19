@@ -67,7 +67,6 @@ async function handleVerify(request, env) {
   const g = grade(b.grade), p = pin(b.pin);
   if (!g || !p) return json({ allowed: false, message: "Enter a valid grade and 4-digit PIN." }, 400, cors(env));
 
-  // PIN lookup in members table
   const spinner = await env.DB.prepare(
     "SELECT playerhq_uid, name FROM members WHERE pin = ?"
   ).bind(p).first();
