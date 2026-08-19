@@ -2,7 +2,7 @@
   "name": "clfc-wheel",
   "version": "1.0.0",
   "description": "CLFC Spinning Wheel production build",
-  "main": "index.js",
+  "main": "_worker.js",
   "type": "module",
   "scripts": {
     "deploy": "wrangler deploy",

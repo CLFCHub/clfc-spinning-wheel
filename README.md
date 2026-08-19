@@ -6,7 +6,7 @@ Production-ready Cloudflare Worker + D1 spinning-wheel application for CLFC.
 
 ```text
 CLFC-Spin-Wheel/
-├── index.js                    ← Cloudflare Worker logic
+├── _worker.js                    ← Cloudflare Worker logic
 ├── index.html                  ← Frontend dashboard
 ├── wrangler.toml               ← Cloudflare configuration
 ├── package.json                ← Dependencies and scripts
