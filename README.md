@@ -29,9 +29,9 @@ CLFC-Spin-Wheel/
    ```
 
 3. **Deployment**:
-   - Link this repository to your Cloudflare account.
-   - Ensure the D1 database `199c7c5a-b202-4439-9401-4c2f27e33ea5` is bound as `DB`.
-   - Deploy via Cloudflare Pages or `npm run deploy`.
+   - Link this repository to your Cloudflare account via Cloudflare Pages.
+   - In your Cloudflare dashboard, go to **Settings > Functions > D1 Database Bindings** and bind your D1 database using the variable name **`DB`**.
+   - Deploy via Cloudflare Pages.
 
 ## Features
 
