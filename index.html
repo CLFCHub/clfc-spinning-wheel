@@ -70,7 +70,7 @@ const grades=["league","reserves","colts","thirds"];
 let selected="league",players=[],rotation=0,verified=false,spinning=false;
 const $=x=>document.getElementById(x);
 const esc=x=>String(x).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
-async function api(path,opt){const r=await fetch(API_BASE+path,opt);const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||d.message||"Request failed");return d}
+async function api(path,opt){const r=await fetch(API_BASE+path,opt);const d=await r.json().catch(()=>({}));if(!r.ok){const msg = d.message ? `${d.error} (${d.message})` : (d.error || "Request failed"); throw Error(msg);}return d}
 function renderGrades(){$("grades").innerHTML=grades.map(g=>`<button class="grade ${g===selected?"active":""}" data-g="${g}">${g.toUpperCase()}</button>`).join("");document.querySelectorAll(".grade").forEach(b=>b.onclick=()=>{selected=b.dataset.g;verified=false;$("spin").disabled=true;$("cost").hidden=true;$("payidBox").hidden=true;renderGrades();load()})}
 function renderWheel(){
   const n=players.length;
