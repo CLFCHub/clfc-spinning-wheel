@@ -1,5 +1,5 @@
 const GRADES = ["league", "reserves", "colts", "thirds"];
-const SPIN_DURATION_MS = 3200;
+const SPIN_DURATION_MS = 5000;
 
 const cors = (env, request) => {
   const origin = request ? request.headers.get("Origin") : null;
