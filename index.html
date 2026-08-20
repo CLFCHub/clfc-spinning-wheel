@@ -116,7 +116,7 @@ hr.divider{border:none;border-top:1px solid var(--line);margin:20px 0}
     <button id="verify" class="primary secondary">Check if I can spin</button>
 
     <div id="cost" class="cost-box" hidden>
-      <label><input id="costCheck" type="checkbox"> I confirm I owe $5 and have completed the PayID transfer.</label>
+      <label><input id="costCheck" type="checkbox"> I confirm I owe $5 otherwise i wouldn't spin.</label>
     </div>
 
     <button id="spin" class="primary" disabled>Spin the wheel</button>
@@ -148,7 +148,7 @@ hr.divider{border:none;border-top:1px solid var(--line);margin:20px 0}
       <div id="adminDeclareInfo" class="admin-declare-info">Loading...</div>
 
       <label for="adminScorer">First goal scorer's name</label>
-      <input id="adminScorer" type="text" placeholder="e.g. Jacob Plunkett">
+      <input id="adminScorer" type="text" placeholder="e.g. Jack James">
       <button id="adminDeclareBtn" class="primary secondary">Declare first goal scorer</button>
 
       <hr class="divider">
@@ -317,7 +317,7 @@ $("verify").onclick = async () => {
     $("metaName").textContent = verified && d.spinner ? d.spinner.name : "—";
     $("cost").hidden = !verified;
     $("spin").disabled = !verified || !$("costCheck").checked;
-    $("notice").textContent = verified ? "PIN verified. Confirm your PayID payment below to unlock the spin." : d.message;
+    $("notice").textContent = verified ? "PIN verified. Confirm you owe $5 to spin to unlock." : d.message;
   } catch (e) {
     verified = false;
     $("metaName").textContent = "—";
@@ -343,7 +343,7 @@ $("spin").onclick = async () => {
       body: JSON.stringify({ grade: selected, pin: $("pin").value.trim() })
     });
     const r = d.result;
-    await spinWheelTo(r.winner_index, r.wheel_size, d.spin_duration_ms || 3200);
+    await spinWheelTo(r.winner_index, r.wheel_size, d.spin_duration_ms || 4200);
     $("notice").textContent = `${r.spinner_name} chose ${r.winner_name}.`;
     verified = false;
     $("cost").hidden = true;
