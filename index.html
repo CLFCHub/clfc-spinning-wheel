@@ -24,6 +24,7 @@ h1.title{font-family:'Anton',sans-serif;text-transform:uppercase;text-align:cent
 
 .card{background:var(--paper);border-radius:16px;padding:22px 20px;color:var(--ink);box-shadow:0 18px 40px rgba(0,0,0,.35);margin-bottom:18px}
 .card > label:first-child{margin-top:0}
+.card h2{font-family:'Anton',sans-serif;text-transform:uppercase;font-size:19px;color:var(--navy);margin:0 0 14px}
 
 label{display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--navy);margin:14px 0 6px}
 
@@ -35,13 +36,17 @@ label{display:block;font-size:12px;font-weight:700;text-transform:uppercase;lett
 .spin-meta{background:#fff;border:1.5px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:18px;font-size:14px}
 .spin-meta div{display:flex;justify-content:space-between;padding:3px 0}
 .spin-meta b{color:var(--navy)}
+.spin-meta div.pool b{color:#1c7a3d}
 
 .wheel-wrap{position:relative;width:min(80vw,360px);aspect-ratio:1;margin:0 auto 20px}
 .wheel-wrap canvas{width:100%;height:100%;border-radius:50%;box-shadow:0 0 0 6px var(--navy),0 12px 30px rgba(0,0,0,.35)}
 .pointer{position:absolute;top:-16px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:16px solid transparent;border-right:16px solid transparent;border-top:30px solid var(--red);z-index:5;filter:drop-shadow(0 3px 3px rgba(0,0,0,.4))}
 .empty-wheel{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#f6f3ecf2;border-radius:50%;font-family:'Anton',sans-serif;font-size:18px;color:var(--red);text-align:center;padding:20px;line-height:1.3}
+.winner-banner{position:absolute;inset:0;z-index:6;border-radius:50%;background:linear-gradient(135deg,var(--gold),#d9931f);display:flex;align-items:center;justify-content:center;padding:26px;text-align:center;box-shadow:0 0 0 6px var(--navy) inset}
+.winner-banner-text{font-family:'Anton',sans-serif;text-transform:uppercase;font-size:clamp(14px,4.4vw,21px);line-height:1.35;color:var(--navy-deep)}
 
-input[type=tel]{width:100%;font-size:19px;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);text-align:center;letter-spacing:.3em}
+input[type=tel],input[type=text],input[type=password],select{width:100%;font-size:17px;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+input[type=tel]{font-size:19px;text-align:center;letter-spacing:.3em}
 input[type=tel]:disabled{opacity:.5}
 
 button.primary{width:100%;margin-top:14px;font-family:'JetBrains Mono',monospace;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:var(--red);color:#fff;border:none;border-radius:10px;padding:14px;font-size:14.5px;cursor:pointer;box-shadow:0 6px 0 #9c1c1c}
@@ -49,31 +54,33 @@ button.primary:active{transform:translateY(3px);box-shadow:0 3px 0 #9c1c1c}
 button.primary:disabled{opacity:.5;cursor:not-allowed;box-shadow:none;transform:none}
 button.secondary{background:var(--navy);box-shadow:0 6px 0 var(--navy-deep)}
 button.secondary:active{box-shadow:0 3px 0 var(--navy-deep)}
+button.danger{background:#8a1c1c;box-shadow:0 6px 0 #4d0f0f}
+button.danger:active{box-shadow:0 3px 0 #4d0f0f}
 
-.pay-box{background:var(--paper);border:2px solid var(--gold);border-radius:12px;padding:14px;margin-top:14px}
-.pay-box h3{margin:0 0 8px;font-family:'Anton',sans-serif;text-transform:uppercase;font-size:15px;color:var(--navy)}
-.pay-box p{margin:0 0 8px;font-size:13px;color:#3a3320;line-height:1.5}
-.pay-box .payid{font-family:'JetBrains Mono',monospace;font-size:14px;background:#fff;padding:8px 10px;border-radius:8px;display:inline-block;margin:2px 0 8px;word-break:break-all}
+.pay-note{background:#fff;border:1.5px solid var(--gold);border-radius:10px;padding:12px 14px;margin-top:14px;font-size:13px;text-align:center;color:#3a3320;line-height:1.5}
+.pay-note strong{color:var(--navy);font-family:'JetBrains Mono',monospace;display:inline-block;margin-top:2px}
 
 .cost-box{background:#fff;border:1.5px solid var(--line);border-radius:10px;padding:12px 14px;margin-top:14px}
 .cost-box label{display:flex;align-items:flex-start;gap:8px;margin:0;text-transform:none;font-size:13.5px;color:var(--ink);font-weight:500;letter-spacing:0}
-.cost-box input{margin-top:2px}
+.cost-box input{margin-top:2px;width:auto}
 
 .notice{text-align:center;min-height:22px;font-weight:700;color:var(--red);margin-top:12px;font-size:13.5px}
 
 .results-title{font-family:'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;font-size:12px;color:rgba(255,255,255,.7);margin:26px 0 10px;text-align:center}
-table.results{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;font-size:13px;color:var(--ink)}
-table.results th{text-align:left;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:#6b6455;border-bottom:2px solid var(--navy);padding:8px;background:var(--paper)}
-table.results td{padding:8px;border-bottom:1px solid var(--line)}
-table.results tr:last-child td{border-bottom:none}
-.muted{color:#5a5a5a;font-size:13px;text-align:center;padding:14px 0}
-
 .all-history{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
 .history-col{background:var(--paper);border-radius:12px;padding:12px;color:var(--ink)}
 .history-col h3{margin:0 0 8px;font-family:'Anton',sans-serif;text-transform:uppercase;font-size:14px;color:var(--navy);text-align:center;border-bottom:1px solid var(--line);padding-bottom:6px}
 .history-row{padding:6px 0;font-size:11.5px;border-bottom:1px solid var(--line)}
 .history-row:last-child{border-bottom:none}
 .history-empty{font-size:11.5px;color:#8a8370;text-align:center;padding:6px 0}
+
+.admin-link{display:block;text-align:center;margin-top:34px;font-family:'JetBrains Mono',monospace;font-size:11px;color:rgba(255,255,255,.35);text-decoration:none;letter-spacing:.1em;text-transform:uppercase}
+.admin-link:hover{color:rgba(255,255,255,.7)}
+.admin-panel{margin-top:14px}
+.admin-declare-info{background:#fff;border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;font-size:12.5px;color:#5a5a5a;margin:6px 0 4px}
+.admin-logout{display:block;text-align:center;margin-top:16px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#8a8370;text-decoration:none}
+.admin-logout:hover{color:var(--navy)}
+hr.divider{border:none;border-top:1px solid var(--line);margin:20px 0}
 
 @media(min-width:640px){.wrap{max-width:640px}}
 </style>
@@ -94,44 +101,73 @@ table.results tr:last-child td{border-bottom:none}
       <div><span>Your name</span><b id="metaName">—</b></div>
       <div><span>Grade</span><b id="metaGrade">LEAGUE</b></div>
       <div><span>Players remaining</span><b id="metaCount">0</b></div>
+      <div class="pool"><span>Prize pool</span><b id="metaPool">$0</b></div>
     </div>
 
     <div class="wheel-wrap">
       <div class="pointer"></div>
       <canvas id="wheelCanvas"></canvas>
       <div id="emptyNotice" class="empty-wheel" hidden>No team<br>named yet.</div>
+      <div id="winnerBanner" class="winner-banner" hidden></div>
     </div>
 
     <label for="pin">Your PIN</label>
     <input id="pin" type="tel" maxlength="4" inputmode="numeric" placeholder="••••">
     <button id="verify" class="primary secondary">Check if I can spin</button>
 
-    <div id="payidBox" class="pay-box" hidden>
-      <h3>Pay $5 to confirm your spin</h3>
-      <p>Pay via PayID to:</p>
-      <div class="payid">payment.payidme@gmail.com</div>
-      <p>Use your full name as the payment reference.</p>
-    </div>
-
     <div id="cost" class="cost-box" hidden>
       <label><input id="costCheck" type="checkbox"> I confirm I owe $5 and have completed the PayID transfer.</label>
     </div>
 
     <button id="spin" class="primary" disabled>Spin the wheel</button>
+
+    <div class="pay-note">
+      Pay $5 via PayID to<br><strong>payment.payidme@gmail.com</strong><br>Use your full name as the payment reference.
+    </div>
+
     <div id="notice" class="notice"></div>
   </div>
 
-  <div class="results-title" id="resultsTitle">LEAGUE RESULTS</div>
-  <table class="results" id="resultsTable"><tbody><tr><td class="muted">Loading...</td></tr></tbody></table>
-
   <div class="results-title">All grades</div>
   <div id="allHistory" class="all-history"></div>
+
+  <a href="#" id="adminToggle" class="admin-link">Admin</a>
+  <div id="adminPanel" class="card admin-panel" hidden>
+    <h2>Admin</h2>
+
+    <div id="adminLoginArea">
+      <label for="adminPass">Passcode</label>
+      <input id="adminPass" type="password" placeholder="Enter passcode">
+      <button id="adminLoginBtn" class="primary secondary">Unlock admin</button>
+      <div id="adminLoginError" class="notice"></div>
+    </div>
+
+    <div id="adminControlsArea" hidden>
+      <label for="adminGrade">Grade</label>
+      <select id="adminGrade"></select>
+      <div id="adminDeclareInfo" class="admin-declare-info">Loading...</div>
+
+      <label for="adminScorer">First goal scorer's name</label>
+      <input id="adminScorer" type="text" placeholder="e.g. Jacob Plunkett">
+      <button id="adminDeclareBtn" class="primary secondary">Declare first goal scorer</button>
+
+      <hr class="divider">
+
+      <label>Danger zone</label>
+      <button id="adminClearBtn" class="primary danger">Clear all spins for this grade</button>
+
+      <div id="adminNotice" class="notice"></div>
+      <a href="#" id="adminLogoutBtn" class="admin-logout">Log out of admin</a>
+    </div>
+  </div>
 </div>
 
 <script>
 const API_BASE = "https://clfc-spinning-wheel.clfchub.workers.dev";
 const grades = ["league","reserves","colts","thirds"];
 let selected = "league", players = [], wheelRotation = 0, verified = false, spinning = false;
+let adminGrade = "league";
+const ADMIN_KEY = "clfc_admin_pass";
 
 const $ = x => document.getElementById(x);
 const esc = x => String(x).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
@@ -155,9 +191,10 @@ function renderGrades() {
     verified = false;
     $("spin").disabled = true;
     $("cost").hidden = true;
-    $("payidBox").hidden = true;
     $("metaName").textContent = "—";
     $("pin").value = "";
+    $("pin").disabled = false;
+    $("verify").disabled = false;
     $("costCheck").checked = false;
     renderGrades();
     load();
@@ -175,13 +212,9 @@ function drawWheel() {
 
   if (n === 0) {
     $("emptyNotice").hidden = false;
-    $("pin").disabled = true;
-    $("verify").disabled = true;
     return;
   }
   $("emptyNotice").hidden = true;
-  $("pin").disabled = false;
-  $("verify").disabled = false;
 
   const slice = (Math.PI * 2) / n;
   players.forEach((p, i) => {
@@ -224,19 +257,6 @@ function spinWheelTo(targetIndex, totalOptions, duration) {
 }
 
 function historyUI(h) {
-  $("resultsTitle").textContent = selected.toUpperCase() + " RESULTS";
-  const filtered = h.filter(x => x.grade === selected);
-  const table = $("resultsTable");
-  if (!filtered.length) {
-    table.innerHTML = `<tbody><tr><td class="muted">No spins recorded yet.</td></tr></tbody>`;
-  } else {
-    table.innerHTML = `<thead><tr><th>Spinner</th><th>Player picked</th></tr></thead><tbody>${
-      filtered.slice().reverse().map(x =>
-        `<tr><td>${esc(x.spinner_name)}</td><td>${esc(x.winner_name)}</td></tr>`
-      ).join("")
-    }</tbody>`;
-  }
-
   $("allHistory").innerHTML = grades.map(g => {
     const gh = h.filter(x => x.grade === g).slice().reverse();
     return `<div class="history-col"><h3>${g.toUpperCase()}</h3>${
@@ -254,8 +274,31 @@ async function load() {
     drawWheel();
     $("metaGrade").textContent = selected.toUpperCase();
     $("metaCount").textContent = players.length;
-    historyUI(d.history || []);
-    $("notice").textContent = d.roster_empty ? "No team named yet." : "";
+
+    const history = d.history || [];
+    const gradeSpins = history.filter(x => x.grade === selected);
+    $("metaPool").textContent = "$" + (gradeSpins.length * 5);
+    historyUI(history);
+
+    if (d.declaration) {
+      $("winnerBanner").hidden = false;
+      $("winnerBanner").innerHTML = `<div class="winner-banner-text">${esc(d.declaration.spinner_name)} wins $${gradeSpins.length * 5} for ${esc(d.declaration.scorer_name)} kicking the first goal</div>`;
+      $("pin").disabled = true;
+      $("verify").disabled = true;
+      $("spin").disabled = true;
+      $("cost").hidden = true;
+      $("notice").textContent = "";
+    } else {
+      $("winnerBanner").hidden = true;
+      if (players.length === 0) {
+        $("pin").disabled = true;
+        $("verify").disabled = true;
+      } else {
+        $("pin").disabled = false;
+        $("verify").disabled = false;
+      }
+      $("notice").textContent = d.roster_empty ? "No team named yet." : "";
+    }
   } catch (e) {
     $("notice").textContent = e.message;
   }
@@ -272,14 +315,12 @@ $("verify").onclick = async () => {
     });
     verified = d.allowed;
     $("metaName").textContent = verified && d.spinner ? d.spinner.name : "—";
-    $("payidBox").hidden = !verified;
     $("cost").hidden = !verified;
     $("spin").disabled = !verified || !$("costCheck").checked;
-    $("notice").textContent = verified ? "PIN verified. Complete PayID transfer to unlock spin." : d.message;
+    $("notice").textContent = verified ? "PIN verified. Confirm your PayID payment below to unlock the spin." : d.message;
   } catch (e) {
     verified = false;
     $("metaName").textContent = "—";
-    $("payidBox").hidden = true;
     $("cost").hidden = true;
     $("spin").disabled = true;
     $("notice").textContent = e.message;
@@ -305,7 +346,6 @@ $("spin").onclick = async () => {
     await spinWheelTo(r.winner_index, r.wheel_size, d.spin_duration_ms || 3200);
     $("notice").textContent = `${r.spinner_name} chose ${r.winner_name}.`;
     verified = false;
-    $("payidBox").hidden = true;
     $("cost").hidden = true;
     $("costCheck").checked = false;
     $("pin").value = "";
@@ -318,6 +358,113 @@ $("spin").onclick = async () => {
     $("verify").disabled = false;
     $("spin").disabled = true;
   }
+};
+
+// ============ ADMIN ============
+$("adminToggle").onclick = (e) => {
+  e.preventDefault();
+  const panel = $("adminPanel");
+  panel.hidden = !panel.hidden;
+  if (!panel.hidden) initAdminPanel();
+};
+
+function initAdminPanel() {
+  const saved = sessionStorage.getItem(ADMIN_KEY);
+  if (saved) {
+    showAdminControls();
+  } else {
+    $("adminLoginArea").hidden = false;
+    $("adminControlsArea").hidden = true;
+  }
+}
+
+$("adminLoginBtn").onclick = () => {
+  const pass = $("adminPass").value.trim();
+  if (!pass) return;
+  sessionStorage.setItem(ADMIN_KEY, pass);
+  $("adminLoginError").textContent = "";
+  $("adminPass").value = "";
+  showAdminControls();
+};
+
+function showAdminControls() {
+  $("adminLoginArea").hidden = true;
+  $("adminControlsArea").hidden = false;
+  renderAdminGradeOptions();
+  refreshAdminDeclareInfo();
+}
+
+function renderAdminGradeOptions() {
+  $("adminGrade").innerHTML = grades.map(g =>
+    `<option value="${g}" ${g === adminGrade ? "selected" : ""}>${g.toUpperCase()}</option>`
+  ).join("");
+}
+
+$("adminGrade").onchange = () => {
+  adminGrade = $("adminGrade").value;
+  refreshAdminDeclareInfo();
+};
+
+async function refreshAdminDeclareInfo() {
+  $("adminDeclareInfo").textContent = "Loading...";
+  try {
+    const d = await api("/api/state?grade=" + adminGrade);
+    const decl = d.declaration;
+    $("adminDeclareInfo").textContent = decl
+      ? `Declared: ${decl.spinner_name} wins for ${decl.scorer_name}.`
+      : "No first goal scorer declared yet for this grade.";
+  } catch (e) {
+    $("adminDeclareInfo").textContent = e.message;
+  }
+}
+
+$("adminDeclareBtn").onclick = async () => {
+  const scorer = $("adminScorer").value.trim();
+  if (!scorer) { $("adminNotice").textContent = "Enter the scorer's name."; return; }
+  const pass = sessionStorage.getItem(ADMIN_KEY);
+  $("adminDeclareBtn").disabled = true;
+  $("adminNotice").textContent = "";
+  try {
+    const d = await api("/api/admin/declare-winner", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ grade: adminGrade, passcode: pass, scorer_name: scorer })
+    });
+    $("adminNotice").textContent = `Declared: ${d.spinner_name} wins for ${d.scorer_name}.`;
+    $("adminScorer").value = "";
+    refreshAdminDeclareInfo();
+    if (adminGrade === selected) load();
+  } catch (e) {
+    $("adminNotice").textContent = e.message;
+  } finally {
+    $("adminDeclareBtn").disabled = false;
+  }
+};
+
+$("adminClearBtn").onclick = async () => {
+  if (!confirm(`Clear ALL spins for ${adminGrade.toUpperCase()}? This cannot be undone.`)) return;
+  const pass = sessionStorage.getItem(ADMIN_KEY);
+  $("adminClearBtn").disabled = true;
+  $("adminNotice").textContent = "";
+  try {
+    await api("/api/admin/clear-spins", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ grade: adminGrade, passcode: pass })
+    });
+    $("adminNotice").textContent = `Cleared all spins for ${adminGrade.toUpperCase()}.`;
+    refreshAdminDeclareInfo();
+    if (adminGrade === selected) load();
+  } catch (e) {
+    $("adminNotice").textContent = e.message;
+  } finally {
+    $("adminClearBtn").disabled = false;
+  }
+};
+
+$("adminLogoutBtn").onclick = (e) => {
+  e.preventDefault();
+  sessionStorage.removeItem(ADMIN_KEY);
+  $("adminLoginArea").hidden = false;
+  $("adminControlsArea").hidden = true;
 };
 
 renderGrades();
