@@ -60,7 +60,7 @@ h1{text-align:center;font-size:clamp(28px,5vw,46px);letter-spacing:.1em;margin:0
 <div id="allHistory" class="all-history"></div>
 </div>
 <script>
-const API_BASE = window.location.hostname === "clfchub.pages.dev" ? "" : "https://clfchub.pages.dev";
+const API_BASE = "https://clfc-spinning-wheel.clfchub.workers.dev";
 const grades=["league","reserves","colts","thirds"];
 let selected="league",players=[],rotation=0,verified=false,spinning=false;
 const $=x=>document.getElementById(x);

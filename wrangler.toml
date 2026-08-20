@@ -6,5 +6,7 @@ compatibility_date = "2026-08-19"
 directory = "."
 binding = "ASSETS"
 
-# Note: Bind your D1 database named 'DB' in the Cloudflare Dashboard 
-# under Workers & Pages > Settings > Functions > D1 Database Bindings.
+[[d1_databases]]
+binding = "DB"
+database_name = "clfchub"
+database_id = "199c7c5a-b202-4439-9401-4c2f27e33ea5"
