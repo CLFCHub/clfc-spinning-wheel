@@ -27,6 +27,14 @@ function pin(v) {
   return /^\d{4}$/.test(v) ? v : null;
 }
 
+function checkPasscode(env, passcode) {
+  const expected = env.ADMIN_PASSCODE || "";
+  return !!expected && String(passcode || "") === expected;
+}
+
+// wheel_spins is the real spin-history table (confirmed against production D1).
+// spin_history is a legacy/unused table left over from an earlier build and is
+// intentionally not referenced anywhere below.
 async function ensureTable(db) {
   await db.prepare(`
     CREATE TABLE IF NOT EXISTS wheel_spins (
@@ -42,6 +50,17 @@ async function ensureTable(db) {
     )
   `).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_wheel_spins_grade ON wheel_spins(grade)`).run();
+}
+
+async function ensureDeclarationsTable(db) {
+  await db.prepare(
+    "CREATE TABLE IF NOT EXISTS grade_declarations (grade TEXT PRIMARY KEY, scorer_name TEXT, spinner_name TEXT, declared_at TEXT)"
+  ).run();
+}
+
+async function getDeclaration(db, g) {
+  await ensureDeclarationsTable(db);
+  return await db.prepare("SELECT * FROM grade_declarations WHERE grade = ?").bind(g).first();
 }
 
 async function getFullRoster(db, g) {
@@ -74,13 +93,21 @@ async function handleState(request, env) {
   const spunUIDs = await getSpunUIDs(env.DB, g);
   const activeWheel = fullRoster.filter(p => !spunUIDs.has(p.playhq_uid));
   const history = await getAllHistory(env.DB);
+  const declarationRow = await getDeclaration(env.DB, g);
 
   return json({
     grade: g,
     wheel: activeWheel,
     history,
     spin_duration_ms: SPIN_DURATION_MS,
-    roster_empty: fullRoster.length === 0
+    roster_empty: fullRoster.length === 0,
+    declaration: declarationRow
+      ? {
+          scorer_name: declarationRow.scorer_name,
+          spinner_name: declarationRow.spinner_name,
+          declared_at: declarationRow.declared_at
+        }
+      : null
   }, 200, cors(env, request));
 }
 
@@ -90,13 +117,18 @@ async function handleVerify(request, env) {
   if (!g || !p) return json({ allowed: false, message: "Enter a valid grade and 4-digit PIN." }, 400, cors(env, request));
 
   await ensureTable(env.DB);
-  
+
   // PIN lookup in members table
   const spinner = await env.DB.prepare(
     "SELECT playhq_uid, name FROM members WHERE CAST(pin AS TEXT) = ?"
   ).bind(p).first();
 
   if (!spinner) return json({ allowed: false, message: "PIN not found in members list." }, 401, cors(env, request));
+
+  const declarationRow = await getDeclaration(env.DB, g);
+  if (declarationRow) {
+    return json({ allowed: false, reason: "declared", message: "The first goal scorer has already been declared for this grade." }, 200, cors(env, request));
+  }
 
   const fullRoster = await getFullRoster(env.DB, g);
   if (!fullRoster.length) return json({ allowed: false, reason: "empty", message: "No teams named yet." }, 200, cors(env, request));
@@ -129,6 +161,9 @@ async function handleSpin(request, env) {
   if (!g || !p) return json({ error: "Invalid grade or PIN." }, 400, cors(env, request));
 
   await ensureTable(env.DB);
+
+  const declarationRow = await getDeclaration(env.DB, g);
+  if (declarationRow) return json({ error: "The first goal scorer has already been declared for this grade." }, 409, cors(env, request));
 
   const spinner = await env.DB.prepare(
     "SELECT playhq_uid, name FROM members WHERE CAST(pin AS TEXT) = ?"
@@ -175,6 +210,55 @@ async function handleSpin(request, env) {
   }, 200, cors(env, request));
 }
 
+// ---- Admin: clear all spins (and any declaration) for a grade ----
+async function handleAdminClearSpins(request, env) {
+  const b = await request.json().catch(() => ({}));
+  const g = grade(b.grade);
+  if (!g) return json({ error: "Invalid grade." }, 400, cors(env, request));
+  if (!checkPasscode(env, b.passcode)) return json({ error: "Invalid passcode." }, 401, cors(env, request));
+
+  await ensureTable(env.DB);
+  await ensureDeclarationsTable(env.DB);
+  await env.DB.prepare("DELETE FROM wheel_spins WHERE LOWER(grade) = ?").bind(g).run();
+  await env.DB.prepare("DELETE FROM grade_declarations WHERE grade = ?").bind(g).run();
+
+  return json({ success: true, grade: g }, 200, cors(env, request));
+}
+
+// ---- Admin: declare which player scored first, looking up who spun them ----
+async function handleAdminDeclareWinner(request, env) {
+  const b = await request.json().catch(() => ({}));
+  const g = grade(b.grade);
+  const scorer = String(b.scorer_name || "").trim();
+  if (!g) return json({ error: "Invalid grade." }, 400, cors(env, request));
+  if (!scorer) return json({ error: "Enter the first goal scorer's name." }, 400, cors(env, request));
+  if (!checkPasscode(env, b.passcode)) return json({ error: "Invalid passcode." }, 401, cors(env, request));
+
+  await ensureTable(env.DB);
+
+  const spinRow = await env.DB.prepare(
+    "SELECT spinner_name, winner_name FROM wheel_spins WHERE LOWER(grade) = ? AND LOWER(winner_name) = LOWER(?)"
+  ).bind(g, scorer).first();
+
+  if (!spinRow) {
+    return json({ error: "No one has spun and picked that player for this grade yet." }, 404, cors(env, request));
+  }
+
+  await ensureDeclarationsTable(env.DB);
+  const declaredAt = new Date().toISOString();
+  await env.DB.prepare(
+    "INSERT INTO grade_declarations (grade, scorer_name, spinner_name, declared_at) VALUES (?, ?, ?, ?) " +
+    "ON CONFLICT(grade) DO UPDATE SET scorer_name = excluded.scorer_name, spinner_name = excluded.spinner_name, declared_at = excluded.declared_at"
+  ).bind(g, spinRow.winner_name, spinRow.spinner_name, declaredAt).run();
+
+  return json({
+    success: true,
+    grade: g,
+    scorer_name: spinRow.winner_name,
+    spinner_name: spinRow.spinner_name
+  }, 200, cors(env, request));
+}
+
 async function route(request, env) {
   const u = new URL(request.url);
   const path = u.pathname.replace(/\/$/, "");
@@ -187,12 +271,14 @@ async function route(request, env) {
   }
   if (request.method === "POST" && path === "/api/verify") return handleVerify(request, env);
   if (request.method === "POST" && path === "/api/spin") return handleSpin(request, env);
-  
+  if (request.method === "POST" && path === "/api/admin/clear-spins") return handleAdminClearSpins(request, env);
+  if (request.method === "POST" && path === "/api/admin/declare-winner") return handleAdminDeclareWinner(request, env);
+
   if (env.ASSETS) {
     return env.ASSETS.fetch(request);
   }
-  
-  return json({ error: "Not found." }, 404, cors(env));
+
+  return json({ error: "Not found." }, 404, cors(env, request));
 }
 
 export default {
@@ -202,9 +288,9 @@ export default {
       return await route(request, env);
     } catch (e) {
       console.error(e);
-      return json({ 
-        error: "Server error.", 
-        message: e.message, 
+      return json({
+        error: "Server error.",
+        message: e.message,
         cause: e.cause ? e.cause.message : undefined,
         sql_error: e.db_error || undefined
       }, 500, cors(env, request));
