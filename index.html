@@ -467,8 +467,14 @@ $("adminLogoutBtn").onclick = (e) => {
   $("adminControlsArea").hidden = true;
 };
 
-renderGrades();
-load();
+if (location.hostname.endsWith("github.io")) {
+  // This static mirror has no backend attached — every /api call here 404s.
+  // Send anyone who lands here to the real, connected site instead.
+  location.replace("https://clfchub.pages.dev/");
+} else {
+  renderGrades();
+  load();
+}
 </script>
 </body>
 </html>
