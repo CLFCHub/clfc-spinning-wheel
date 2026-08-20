@@ -4,99 +4,324 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CLFC Spin Wheel</title>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=JetBrains+Mono:wght@400;600;700&family=Work+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-*{box-sizing:border-box}html,body{margin:0;min-height:100%}
-body{min-height:100vh;font-family:Arial,sans-serif;color:#fff;background:radial-gradient(circle at 50% 25%,#292c35,#11131a 42%,#07080c 80%)}
-.app{width:min(1300px,94vw);margin:auto;padding:28px 0 60px}
-h1{text-align:center;font-size:clamp(28px,5vw,46px);letter-spacing:.1em;margin:0 0 18px}
-.grades{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:25px}
-.grade,.action{border:0;border-radius:12px;padding:14px;font-weight:900;cursor:pointer}
-.grade{background:#1c1e25;color:white}.grade.active{outline:3px solid white}
-.layout{display:grid;grid-template-columns:minmax(300px,1fr) 380px;gap:28px}
-.panel{background:#111218dd;border:1px solid #ffffff1f;border-radius:20px;padding:20px;box-shadow:0 18px 50px #0008}
-.wheel-area{position:relative;width:min(70vw,650px);max-width:100%;aspect-ratio:1;margin:auto}
-.wheel{width:100%;height:100%;border-radius:50%;position:relative;overflow:hidden;border:12px solid #15161c;box-shadow:0 20px 50px #0009,inset 0 0 0 4px #ffffff25;transition:transform 3.2s cubic-bezier(.12,.78,.13,1);background:conic-gradient(#f44336 0 30deg,#ffca28 30deg 60deg,#43a047 60deg 90deg,#29b6f6 90deg 120deg,#7e57c2 120deg 150deg,#ec407a 150deg 180deg,#ff7043 180deg 210deg,#66bb6a 210deg 240deg,#26c6da 240deg 270deg,#5c6bc0 270deg 300deg,#ab47bc 300deg 330deg,#ffa726 330deg)}
-.divider{position:absolute;inset:0;width:100%;height:100%}.divider:after{content:"";position:absolute;left:50%;top:0;width:2px;height:50%;background:#ffffff44;transform-origin:bottom}
-.label{position:absolute;left:50%;top:50%;width:50%;height:40px;margin-top:-20px;transform-origin:left center;padding-left:60px;display:flex;align-items:center;font-size:clamp(10px,1.6vw,16px);font-weight:900;color:white;text-shadow:0 1px 4px #000}
-.pointer{position:absolute;z-index:5;top:-7px;left:50%;transform:translateX(-50%);border-left:24px solid transparent;border-right:24px solid transparent;border-bottom:58px solid white;filter:drop-shadow(0 5px 4px #000)}
-.center{position:absolute;z-index:4;left:50%;top:50%;transform:translate(-50%,-50%);width:17%;aspect-ratio:1;border-radius:50%;background:#17181e;border:7px solid white}
-.controls{display:grid;gap:12px;margin-top:20px}
-.pin{width:100%;padding:14px;border-radius:10px;border:1px solid #555;background:#0d0e12;color:#fff;text-align:center;font-size:20px;letter-spacing:.2em}
-.action{background:#f4f4f4;color:#111}.action:disabled{opacity:.5;cursor:default}
-.cost{padding:14px;border-radius:12px;background:#272931;text-align:center}.cost input{margin-right:8px}
-.notice{text-align:center;min-height:24px;font-weight:700;color:#ff8a65}
-.result-list{display:grid;gap:8px;max-height:620px;overflow:auto}.result{padding:10px 12px;border-radius:10px;background:#24262e;font-size:14px}
-.empty-wheel{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:#111218ee;font-size:22px;font-weight:bold;color:#ff5252;text-align:center;padding:20px}.empty-wheel.active{display:flex}.empty-wheel[hidden]{display:none!important}
-.all-history{display:grid;grid-template-columns:repeat(4, 1fr);gap:15px;margin-top:30px}
-.history-col{background:#111218dd;border:1px solid #ffffff1f;border-radius:15px;padding:15px}
-.history-col h3{margin-top:0;text-align:center;border-bottom:1px solid #ffffff1f;padding-bottom:8px}
-@media(max-width:900px){.all-history{grid-template-columns:repeat(2, 1fr)}}
-@media(max-width:850px){.layout{grid-template-columns:1fr}.wheel-area{width:min(88vw,600px)}}
-@media(max-width:520px){.grades{grid-template-columns:repeat(2,1fr)}.all-history{grid-template-columns:1fr}}
+:root{
+  --navy:#132a6e; --navy-deep:#0b1c4d; --red:#d62828; --blue:#1d4fd8; --gold:#f2b134;
+  --ink:#14161c; --paper:#f6f3ec; --line:rgba(20,22,28,.14);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;min-height:100%}
+body{
+  font-family:'Work Sans',Arial,sans-serif;color:#fff;min-height:100vh;
+  background:linear-gradient(180deg,var(--navy-deep) 0%,#0d234f 40%,#123267 100%);
+}
+.wrap{max-width:560px;margin:0 auto;padding:24px 18px 60px}
+
+.eyebrow{font-family:'JetBrains Mono',monospace;letter-spacing:.2em;text-transform:uppercase;font-size:11px;color:var(--gold);text-align:center;margin:0 0 6px}
+h1.title{font-family:'Anton',sans-serif;text-transform:uppercase;text-align:center;font-size:clamp(28px,7vw,42px);margin:0 0 6px;line-height:1}
+.subtitle{text-align:center;font-size:13.5px;color:rgba(255,255,255,.75);margin:0 0 22px}
+
+.card{background:var(--paper);border-radius:16px;padding:22px 20px;color:var(--ink);box-shadow:0 18px 40px rgba(0,0,0,.35);margin-bottom:18px}
+.card > label:first-child{margin-top:0}
+
+label{display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--navy);margin:14px 0 6px}
+
+.grade-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grade-btn{background:var(--navy);color:#fff;border:none;border-radius:12px;padding:18px 10px;font-family:'Anton',sans-serif;text-transform:uppercase;font-size:16px;cursor:pointer;letter-spacing:.02em}
+.grade-btn.active{background:var(--red);box-shadow:0 0 0 3px #ffffff55 inset}
+.grade-btn:active{transform:scale(.97)}
+
+.spin-meta{background:#fff;border:1.5px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:18px;font-size:14px}
+.spin-meta div{display:flex;justify-content:space-between;padding:3px 0}
+.spin-meta b{color:var(--navy)}
+
+.wheel-wrap{position:relative;width:min(80vw,360px);aspect-ratio:1;margin:0 auto 20px}
+.wheel-wrap canvas{width:100%;height:100%;border-radius:50%;box-shadow:0 0 0 6px var(--navy),0 12px 30px rgba(0,0,0,.35)}
+.pointer{position:absolute;top:-16px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:16px solid transparent;border-right:16px solid transparent;border-top:30px solid var(--red);z-index:5;filter:drop-shadow(0 3px 3px rgba(0,0,0,.4))}
+.empty-wheel{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#f6f3ecf2;border-radius:50%;font-family:'Anton',sans-serif;font-size:18px;color:var(--red);text-align:center;padding:20px;line-height:1.3}
+
+input[type=tel]{width:100%;font-size:19px;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);text-align:center;letter-spacing:.3em}
+input[type=tel]:disabled{opacity:.5}
+
+button.primary{width:100%;margin-top:14px;font-family:'JetBrains Mono',monospace;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:var(--red);color:#fff;border:none;border-radius:10px;padding:14px;font-size:14.5px;cursor:pointer;box-shadow:0 6px 0 #9c1c1c}
+button.primary:active{transform:translateY(3px);box-shadow:0 3px 0 #9c1c1c}
+button.primary:disabled{opacity:.5;cursor:not-allowed;box-shadow:none;transform:none}
+button.secondary{background:var(--navy);box-shadow:0 6px 0 var(--navy-deep)}
+button.secondary:active{box-shadow:0 3px 0 var(--navy-deep)}
+
+.pay-box{background:var(--paper);border:2px solid var(--gold);border-radius:12px;padding:14px;margin-top:14px}
+.pay-box h3{margin:0 0 8px;font-family:'Anton',sans-serif;text-transform:uppercase;font-size:15px;color:var(--navy)}
+.pay-box p{margin:0 0 8px;font-size:13px;color:#3a3320;line-height:1.5}
+.pay-box .payid{font-family:'JetBrains Mono',monospace;font-size:14px;background:#fff;padding:8px 10px;border-radius:8px;display:inline-block;margin:2px 0 8px;word-break:break-all}
+
+.cost-box{background:#fff;border:1.5px solid var(--line);border-radius:10px;padding:12px 14px;margin-top:14px}
+.cost-box label{display:flex;align-items:flex-start;gap:8px;margin:0;text-transform:none;font-size:13.5px;color:var(--ink);font-weight:500;letter-spacing:0}
+.cost-box input{margin-top:2px}
+
+.notice{text-align:center;min-height:22px;font-weight:700;color:var(--red);margin-top:12px;font-size:13.5px}
+
+.results-title{font-family:'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;font-size:12px;color:rgba(255,255,255,.7);margin:26px 0 10px;text-align:center}
+table.results{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;font-size:13px;color:var(--ink)}
+table.results th{text-align:left;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:#6b6455;border-bottom:2px solid var(--navy);padding:8px;background:var(--paper)}
+table.results td{padding:8px;border-bottom:1px solid var(--line)}
+table.results tr:last-child td{border-bottom:none}
+.muted{color:#5a5a5a;font-size:13px;text-align:center;padding:14px 0}
+
+.all-history{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+.history-col{background:var(--paper);border-radius:12px;padding:12px;color:var(--ink)}
+.history-col h3{margin:0 0 8px;font-family:'Anton',sans-serif;text-transform:uppercase;font-size:14px;color:var(--navy);text-align:center;border-bottom:1px solid var(--line);padding-bottom:6px}
+.history-row{padding:6px 0;font-size:11.5px;border-bottom:1px solid var(--line)}
+.history-row:last-child{border-bottom:none}
+.history-empty{font-size:11.5px;color:#8a8370;text-align:center;padding:6px 0}
+
+@media(min-width:640px){.wrap{max-width:640px}}
 </style>
 </head>
 <body>
-<div class="app">
-<h1>SPIN THE WHEEL</h1>
-<div id="grades" class="grades"></div>
-<div class="layout">
-<section class="panel">
-<div class="wheel-area">
-<div class="pointer"></div>
-<div id="wheel" class="wheel"></div>
-<div class="center"></div>
-<div id="emptyNotice" class="empty-wheel" hidden>No teams named yet.</div>
+<div class="wrap">
+  <p class="eyebrow">Cockburn Lakes F.C.</p>
+  <h1 class="title">Spin The Wheel</h1>
+  <p class="subtitle">First goal scorer raffle — pick your grade and spin</p>
+
+  <div class="card">
+    <label>Select grade</label>
+    <div id="grades" class="grade-grid"></div>
+  </div>
+
+  <div class="card">
+    <div class="spin-meta">
+      <div><span>Your name</span><b id="metaName">—</b></div>
+      <div><span>Grade</span><b id="metaGrade">LEAGUE</b></div>
+      <div><span>Players remaining</span><b id="metaCount">0</b></div>
+    </div>
+
+    <div class="wheel-wrap">
+      <div class="pointer"></div>
+      <canvas id="wheelCanvas"></canvas>
+      <div id="emptyNotice" class="empty-wheel" hidden>No team<br>named yet.</div>
+    </div>
+
+    <label for="pin">Your PIN</label>
+    <input id="pin" type="tel" maxlength="4" inputmode="numeric" placeholder="••••">
+    <button id="verify" class="primary secondary">Check if I can spin</button>
+
+    <div id="payidBox" class="pay-box" hidden>
+      <h3>Pay $5 to confirm your spin</h3>
+      <p>Pay via PayID to:</p>
+      <div class="payid">payment.payidme@gmail.com</div>
+      <p>Use your full name as the payment reference.</p>
+    </div>
+
+    <div id="cost" class="cost-box" hidden>
+      <label><input id="costCheck" type="checkbox"> I confirm I owe $5 and have completed the PayID transfer.</label>
+    </div>
+
+    <button id="spin" class="primary" disabled>Spin the wheel</button>
+    <div id="notice" class="notice"></div>
+  </div>
+
+  <div class="results-title" id="resultsTitle">LEAGUE RESULTS</div>
+  <table class="results" id="resultsTable"><tbody><tr><td class="muted">Loading...</td></tr></tbody></table>
+
+  <div class="results-title">All grades</div>
+  <div id="allHistory" class="all-history"></div>
 </div>
-<div class="controls">
-<input id="pin" class="pin" maxlength="4" inputmode="numeric" placeholder="ENTER 4-DIGIT PIN">
-<button id="verify" class="action">CHECK IF I CAN SPIN</button>
-<div id="cost" class="cost" hidden><label><input id="costCheck" type="checkbox"> I understand this costs $5 to spin.</label></div>
-<button id="spin" class="action" disabled>SPIN</button>
-<div id="notice" class="notice"></div>
-</div>
-</section>
-<aside class="panel"><h2 id="resultsTitle">RESULTS</h2><div id="results" class="result-list"></div></aside>
-</div>
-<div id="allHistory" class="all-history"></div>
-</div>
+
 <script>
 const API_BASE = "https://clfc-spinning-wheel.clfchub.workers.dev";
-const grades=["league","reserves","colts","thirds"];
-let selected="league",players=[],rotation=0,verified=false,spinning=false;
-const $=x=>document.getElementById(x);
-const esc=x=>String(x).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
-async function api(path,opt){const r=await fetch(API_BASE+path,opt);const d=await r.json().catch(()=>({}));if(!r.ok){const msg = d.message ? `${d.error} (${d.message})` : (d.error || "Request failed"); throw Error(msg);}return d}
-function renderGrades(){$("grades").innerHTML=grades.map(g=>`<button class="grade ${g===selected?"active":""}" data-g="${g}">${g.toUpperCase()}</button>`).join("");document.querySelectorAll(".grade").forEach(b=>b.onclick=()=>{selected=b.dataset.g;verified=false;$("spin").disabled=true;$("cost").hidden=true;renderGrades();load()})}
-function renderWheel(){
-  const n=players.length;
-  if(n===0){
-    $("wheel").innerHTML="";
-    $("emptyNotice").classList.add("active");
-    $("verify").disabled=true;
-    $("pin").disabled=true;
+const grades = ["league","reserves","colts","thirds"];
+let selected = "league", players = [], wheelRotation = 0, verified = false, spinning = false;
+
+const $ = x => document.getElementById(x);
+const esc = x => String(x).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
+
+async function api(path, opt) {
+  const r = await fetch(API_BASE + path, opt);
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const msg = d.message ? `${d.error} (${d.message})` : (d.error || "Request failed");
+    throw Error(msg);
+  }
+  return d;
+}
+
+function renderGrades() {
+  $("grades").innerHTML = grades.map(g =>
+    `<button class="grade-btn ${g === selected ? "active" : ""}" data-g="${g}">${g.toUpperCase()}</button>`
+  ).join("");
+  document.querySelectorAll(".grade-btn").forEach(b => b.onclick = () => {
+    selected = b.dataset.g;
+    verified = false;
+    $("spin").disabled = true;
+    $("cost").hidden = true;
+    $("payidBox").hidden = true;
+    $("metaName").textContent = "—";
+    $("pin").value = "";
+    $("costCheck").checked = false;
+    renderGrades();
+    load();
+  });
+}
+
+function drawWheel() {
+  const canvas = $("wheelCanvas");
+  const ctx = canvas.getContext("2d");
+  const n = players.length;
+  const w = canvas.width = 800, h = canvas.height = 800;
+  const cx = w / 2, cy = h / 2, rad = w / 2 - 10;
+
+  ctx.clearRect(0, 0, w, h);
+
+  if (n === 0) {
+    $("emptyNotice").hidden = false;
+    $("pin").disabled = true;
+    $("verify").disabled = true;
     return;
   }
-  $("emptyNotice").classList.remove("active");
-  $("verify").disabled=false;
-  $("pin").disabled=false;
-  $("wheel").innerHTML=players.map((p,i)=>{const a=i*360/n+180/n;return `<div class="divider" style="transform:rotate(${i*360/n}deg)"></div><div class="label" style="transform:rotate(${a-90}deg)">${esc(p.name)}</div>`}).join("");
+  $("emptyNotice").hidden = true;
+  $("pin").disabled = false;
+  $("verify").disabled = false;
+
+  const slice = (Math.PI * 2) / n;
+  players.forEach((p, i) => {
+    const ang = i * slice;
+    ctx.beginPath();
+    ctx.fillStyle = i % 2 === 0 ? "#132a6e" : "#1d4fd8";
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, rad, ang, ang + slice);
+    ctx.fill();
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(ang + slice / 2);
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#fff";
+    ctx.font = `bold ${n > 16 ? 20 : 24}px 'JetBrains Mono', monospace`;
+    ctx.fillText(p.name, rad - 28, 8);
+    ctx.restore();
+  });
 }
-function historyUI(h){
-  $("resultsTitle").textContent=selected.toUpperCase()+" RESULTS";
+
+function spinWheelTo(targetIndex, totalOptions, duration) {
+  return new Promise(resolve => {
+    const canvas = $("wheelCanvas");
+    const sliceDeg = 360 / totalOptions;
+    const targetDeg = 360 - (targetIndex * sliceDeg) - (sliceDeg / 2);
+    const rotations = 6 + Math.floor(Math.random() * 3);
+    const finalDeg = wheelRotation + rotations * 360 + ((targetDeg - (wheelRotation % 360)) + 360) % 360;
+    const start = performance.now(), startDeg = wheelRotation;
+    function frame(t) {
+      const elapsed = t - start, progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 4);
+      wheelRotation = startDeg + (finalDeg - startDeg) * eased;
+      canvas.style.transform = `rotate(${wheelRotation}deg)`;
+      if (progress < 1) requestAnimationFrame(frame);
+      else resolve();
+    }
+    requestAnimationFrame(frame);
+  });
+}
+
+function historyUI(h) {
+  $("resultsTitle").textContent = selected.toUpperCase() + " RESULTS";
   const filtered = h.filter(x => x.grade === selected);
-  $("results").innerHTML=filtered.length?filtered.slice().reverse().map(x=>`<div class="result"><strong>${esc(x.spinner_name)}</strong> chose <strong>${esc(x.winner_name)}</strong></div>`).join(""):"<div style='opacity:.6'>No spins recorded yet.</div>";
-  
-  // Render all 4 columns
+  const table = $("resultsTable");
+  if (!filtered.length) {
+    table.innerHTML = `<tbody><tr><td class="muted">No spins recorded yet.</td></tr></tbody>`;
+  } else {
+    table.innerHTML = `<thead><tr><th>Spinner</th><th>Player picked</th></tr></thead><tbody>${
+      filtered.slice().reverse().map(x =>
+        `<tr><td>${esc(x.spinner_name)}</td><td>${esc(x.winner_name)}</td></tr>`
+      ).join("")
+    }</tbody>`;
+  }
+
   $("allHistory").innerHTML = grades.map(g => {
-    const gradeHistory = h.filter(x => x.grade === g).slice().reverse();
-    return `<div class="history-col"><h3>${g.toUpperCase()}</h3><div class="result-list">${gradeHistory.length ? gradeHistory.map(x => `<div class="result" style="font-size:12px"><strong>${esc(x.spinner_name)}</strong> chose <strong>${esc(x.winner_name)}</strong></div>`).join("") : "<div style='opacity:.6; font-size:12px; text-align:center'>No spins.</div>"}</div></div>`;
+    const gh = h.filter(x => x.grade === g).slice().reverse();
+    return `<div class="history-col"><h3>${g.toUpperCase()}</h3>${
+      gh.length
+        ? gh.map(x => `<div class="history-row"><strong>${esc(x.spinner_name)}</strong> chose ${esc(x.winner_name)}</div>`).join("")
+        : `<div class="history-empty">No spins yet.</div>`
+    }</div>`;
   }).join("");
 }
-async function load(){try{const d=await api("/api/state?grade="+selected);players=d.wheel||[];renderWheel();historyUI(d.history||[]);if(d.roster_empty){$("notice").textContent="No teams named yet.";}else{$("notice").textContent="";}}catch(e){$("notice").textContent=e.message}}
-$("verify").onclick=async()=>{const p=$("pin").value.trim();if(!/^\d{4}$/.test(p))return $("notice").textContent="Enter a valid 4-digit PIN.";$("verify").disabled=true;try{const d=await api("/api/verify",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({grade:selected,pin:p})});verified=d.allowed;$("cost").hidden=!verified;$("spin").disabled=!verified||!$("costCheck").checked;$("notice").textContent=verified?"PIN verified. Acknowledgement required to unlock spin.":d.message}catch(e){verified=false;$("cost").hidden=true;$("spin").disabled=true;$("notice").textContent=e.message}finally{$("verify").disabled=false}}
-$("costCheck").onchange=()=>{$("spin").disabled=!verified||!$("costCheck").checked};
-$("spin").onclick=async()=>{if(!verified||spinning)return;spinning=true;$("spin").disabled=true;$("verify").disabled=true;$("notice").textContent="The wheel is spinning...";try{const d=await api("/api/spin",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({grade:selected,pin:$("pin").value.trim()})});const r=d.result,n=r.wheel_size,seg=360/n,target=360-(r.winner_index*seg+seg/2),mod=((rotation%360)+360)%360,correction=((target-mod)+360)%360;rotation+=5*360+correction;$("wheel").style.transform=`rotate(${rotation}deg)`;await new Promise(x=>setTimeout(x,d.spin_duration_ms||3200));$("notice").textContent=`${r.spinner_name} chose ${r.winner_name}.`;verified=false;$("cost").hidden=true;$("costCheck").checked=false;$("pin").value="";await load()}catch(e){$("notice").textContent=e.message}finally{spinning=false;$("verify").disabled=false;$("spin").disabled=true}};
-renderGrades();load();
+
+async function load() {
+  try {
+    const d = await api("/api/state?grade=" + selected);
+    players = d.wheel || [];
+    drawWheel();
+    $("metaGrade").textContent = selected.toUpperCase();
+    $("metaCount").textContent = players.length;
+    historyUI(d.history || []);
+    $("notice").textContent = d.roster_empty ? "No team named yet." : "";
+  } catch (e) {
+    $("notice").textContent = e.message;
+  }
+}
+
+$("verify").onclick = async () => {
+  const p = $("pin").value.trim();
+  if (!/^\d{4}$/.test(p)) return $("notice").textContent = "Enter a valid 4-digit PIN.";
+  $("verify").disabled = true;
+  try {
+    const d = await api("/api/verify", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ grade: selected, pin: p })
+    });
+    verified = d.allowed;
+    $("metaName").textContent = verified && d.spinner ? d.spinner.name : "—";
+    $("payidBox").hidden = !verified;
+    $("cost").hidden = !verified;
+    $("spin").disabled = !verified || !$("costCheck").checked;
+    $("notice").textContent = verified ? "PIN verified. Complete PayID transfer to unlock spin." : d.message;
+  } catch (e) {
+    verified = false;
+    $("metaName").textContent = "—";
+    $("payidBox").hidden = true;
+    $("cost").hidden = true;
+    $("spin").disabled = true;
+    $("notice").textContent = e.message;
+  } finally {
+    $("verify").disabled = false;
+  }
+};
+
+$("costCheck").onchange = () => { $("spin").disabled = !verified || !$("costCheck").checked; };
+
+$("spin").onclick = async () => {
+  if (!verified || spinning) return;
+  spinning = true;
+  $("spin").disabled = true;
+  $("verify").disabled = true;
+  $("notice").textContent = "The wheel is spinning...";
+  try {
+    const d = await api("/api/spin", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ grade: selected, pin: $("pin").value.trim() })
+    });
+    const r = d.result;
+    await spinWheelTo(r.winner_index, r.wheel_size, d.spin_duration_ms || 3200);
+    $("notice").textContent = `${r.spinner_name} chose ${r.winner_name}.`;
+    verified = false;
+    $("payidBox").hidden = true;
+    $("cost").hidden = true;
+    $("costCheck").checked = false;
+    $("pin").value = "";
+    $("metaName").textContent = "—";
+    await load();
+  } catch (e) {
+    $("notice").textContent = e.message;
+  } finally {
+    spinning = false;
+    $("verify").disabled = false;
+    $("spin").disabled = true;
+  }
+};
+
+renderGrades();
+load();
 </script>
 </body>
 </html>
