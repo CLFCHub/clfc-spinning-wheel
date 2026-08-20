@@ -344,7 +344,7 @@ $("spin").onclick = async () => {
       body: JSON.stringify({ grade: selected, pin: $("pin").value.trim() })
     });
     const r = d.result;
-    await spinWheelTo(r.winner_index, r.wheel_size, d.spin_duration_ms || 4200);
+    await spinWheelTo(r.winner_index, r.wheel_size, d.spin_duration_ms || 3200);
     $("notice").textContent = `${r.spinner_name} chose ${r.winner_name}.`;
     verified = false;
     $("cost").hidden = true;
