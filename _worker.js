@@ -4,10 +4,11 @@ const SPIN_DURATION_MS = 3200;
 const cors = (env, request) => {
   const origin = request ? request.headers.get("Origin") : null;
   return {
-    "access-control-allow-origin": origin || "*",
+    "access-control-allow-origin": origin || env.ALLOWED_ORIGIN || "*",
     "access-control-allow-methods": "GET,POST,OPTIONS",
     "access-control-allow-headers": "content-type",
-    "access-control-allow-credentials": "true"
+    "access-control-allow-credentials": "true",
+    "access-control-max-age": "86400"
   };
 };
 
@@ -32,24 +33,23 @@ function checkPasscode(env, passcode) {
   return !!expected && String(passcode || "") === expected;
 }
 
-// wheel_spins is the real spin-history table (confirmed against production D1).
-// spin_history is a legacy/unused table left over from an earlier build and is
-// intentionally not referenced anywhere below.
 async function ensureTable(db) {
+  // Table should already exist from migration, but we keep this for safety
   await db.prepare(`
     CREATE TABLE IF NOT EXISTS wheel_spins (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       grade TEXT NOT NULL,
-      spinner_uid TEXT NOT NULL,
+      spinner_id INTEGER NOT NULL,
       spinner_name TEXT NOT NULL,
-      winner_uid TEXT NOT NULL,
+      winner_id INTEGER NOT NULL,
       winner_name TEXT NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE(grade, spinner_uid),
-      UNIQUE(grade, winner_uid)
+      spinner_uid TEXT,
+      winner_uid TEXT,
+      FOREIGN KEY (spinner_id) REFERENCES members(id),
+      FOREIGN KEY (winner_id) REFERENCES members(id)
     )
   `).run();
-  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_wheel_spins_grade ON wheel_spins(grade)`).run();
 }
 
 async function ensureDeclarationsTable(db) {
@@ -63,23 +63,35 @@ async function getDeclaration(db, g) {
   return await db.prepare("SELECT * FROM grade_declarations WHERE grade = ?").bind(g).first();
 }
 
+/**
+ * Get all active players on roster.
+ * Uses COALESCE to ensure we have an ID even for unlinked mock players.
+ */
 async function getFullRoster(db, g) {
   const { results } = await db.prepare(
-    "SELECT playhq_uid, name FROM roster_players WHERE LOWER(TRIM(grade)) = ? AND playhq_uid IS NOT NULL AND name IS NOT NULL"
+    "SELECT COALESCE(id, playhq_uid) as id, name FROM roster_players WHERE LOWER(TRIM(grade)) = ?"
   ).bind(g).all();
   return results || [];
 }
 
-async function getSpunUIDs(db, g) {
+/**
+ * Get set of member IDs/UIDs who have already won
+ */
+async function getSpunIDs(db, g) {
   const { results } = await db.prepare(
-    "SELECT winner_uid FROM wheel_spins WHERE LOWER(grade) = ?"
+    "SELECT DISTINCT winner_id, winner_uid FROM wheel_spins WHERE LOWER(grade) = ?"
   ).bind(g).all();
-  return new Set((results || []).map(r => r.winner_uid));
+  const spun = new Set();
+  (results || []).forEach(r => {
+    if (r.winner_id) spun.add(String(r.winner_id));
+    if (r.winner_uid) spun.add(String(r.winner_uid));
+  });
+  return spun;
 }
 
 async function getAllHistory(db) {
   const { results } = await db.prepare(
-    "SELECT * FROM wheel_spins ORDER BY created_at ASC"
+    "SELECT id, grade, spinner_id, spinner_name, winner_id, winner_name, created_at FROM wheel_spins ORDER BY created_at ASC"
   ).all();
   return results || [];
 }
@@ -87,11 +99,11 @@ async function getAllHistory(db) {
 async function handleState(request, env) {
   const g = grade(new URL(request.url).searchParams.get("grade"));
   if (!g) return json({ error: "Invalid grade." }, 400, cors(env, request));
-
+  
   await ensureTable(env.DB);
   const fullRoster = await getFullRoster(env.DB, g);
-  const spunUIDs = await getSpunUIDs(env.DB, g);
-  const activeWheel = fullRoster.filter(p => !spunUIDs.has(p.playhq_uid));
+  const spunIDs = await getSpunIDs(env.DB, g);
+  const activeWheel = fullRoster.filter(p => !spunIDs.has(String(p.id)));
   const history = await getAllHistory(env.DB);
   const declarationRow = await getDeclaration(env.DB, g);
 
@@ -101,29 +113,37 @@ async function handleState(request, env) {
     history,
     spin_duration_ms: SPIN_DURATION_MS,
     roster_empty: fullRoster.length === 0,
-    declaration: declarationRow
-      ? {
-          scorer_name: declarationRow.scorer_name,
-          spinner_name: declarationRow.spinner_name,
-          declared_at: declarationRow.declared_at
-        }
-      : null
+    active_count: activeWheel.length,
+    spun_count: fullRoster.length - activeWheel.length,
+    declaration: declarationRow ? {
+      scorer_name: declarationRow.scorer_name,
+      spinner_name: declarationRow.spinner_name,
+      declared_at: declarationRow.declared_at
+    } : null
   }, 200, cors(env, request));
 }
 
 async function handleVerify(request, env) {
   const b = await request.json().catch(() => ({}));
-  const g = grade(b.grade), p = pin(b.pin);
-  if (!g || !p) return json({ allowed: false, message: "Enter a valid grade and 4-digit PIN." }, 400, cors(env, request));
+  const g = grade(b.grade);
+  const p = pin(b.pin);
+
+  if (!g || !p) {
+    return json({ allowed: false, message: "Enter a valid grade and 4-digit PIN." }, 400, cors(env, request));
+  }
 
   await ensureTable(env.DB);
 
-  // PIN lookup in members table
   const spinner = await env.DB.prepare(
-    "SELECT playhq_uid, name FROM members WHERE CAST(pin AS TEXT) = ?"
+    "SELECT id, name, playhq_uid FROM members WHERE CAST(pin AS TEXT) = ?"
   ).bind(p).first();
 
-  if (!spinner) return json({ allowed: false, message: "PIN not found in members list." }, 401, cors(env, request));
+  if (!spinner) {
+    return json({ allowed: false, message: "PIN not found in members list." }, 401, cors(env, request));
+  }
+
+  const spinnerId = spinner.id !== undefined ? spinner.id : spinner.ID;
+  const spinnerName = spinner.name !== undefined ? spinner.name : spinner.NAME;
 
   const declarationRow = await getDeclaration(env.DB, g);
   if (declarationRow) {
@@ -131,77 +151,135 @@ async function handleVerify(request, env) {
   }
 
   const fullRoster = await getFullRoster(env.DB, g);
-  if (!fullRoster.length) return json({ allowed: false, reason: "empty", message: "No teams named yet." }, 200, cors(env, request));
+  if (!fullRoster.length) {
+    return json({ allowed: false, reason: "empty", message: "No teams named yet." }, 200, cors(env, request));
+  }
 
-  const spunUIDs = await getSpunUIDs(env.DB, g);
-  const activeWheel = fullRoster.filter(p => !spunUIDs.has(p.playhq_uid));
+  // Self-exclusion check: Check both ID and Name to be robust
+  const onRoster = fullRoster.some(x => 
+    String(x.id) === String(spinnerId) || 
+    String(x.name).toLowerCase().trim() === String(spinnerName).toLowerCase().trim()
+  );
 
-  if (fullRoster.some(x => x.playhq_uid === spinner.playhq_uid)) {
-    return json({ allowed: false, reason: "self_on_wheel", message: "You can't spin this wheel because your name is on it." }, 200, cors(env, request));
+  if (onRoster) {
+    return json({ allowed: false, reason: "self_on_wheel", message: "You can't spin your own team." }, 200, cors(env, request));
   }
 
   const alreadySpun = await env.DB.prepare(
-    "SELECT 1 FROM wheel_spins WHERE LOWER(grade) = ? AND spinner_uid = ?"
-  ).bind(g, spinner.playhq_uid).first();
+    "SELECT 1 FROM wheel_spins WHERE LOWER(grade) = ? AND spinner_id = ?"
+  ).bind(g, spinnerId).first();
 
   if (alreadySpun) {
     return json({ allowed: false, reason: "already_spun", message: "You have already used your spin for this grade." }, 200, cors(env, request));
   }
 
+  const spunIDs = await getSpunIDs(env.DB, g);
+  const activeWheel = fullRoster.filter(p2 => !spunIDs.has(String(p2.id)));
+
   if (!activeWheel.length) {
     return json({ allowed: false, reason: "all_spun", message: "All players have already been spun for this grade." }, 200, cors(env, request));
   }
 
-  return json({ allowed: true, spinner, grade: g }, 200, cors(env, request));
+  return json({ allowed: true, spinner: { id: spinnerId, name: spinnerName }, grade: g }, 200, cors(env, request));
 }
 
 async function handleSpin(request, env) {
   const b = await request.json().catch(() => ({}));
-  const g = grade(b.grade), p = pin(b.pin);
-  if (!g || !p) return json({ error: "Invalid grade or PIN." }, 400, cors(env, request));
+  const g = grade(b.grade);
+  const p = pin(b.pin);
+
+  if (!g || !p) {
+    return json({ error: "Invalid grade or PIN." }, 400, cors(env, request));
+  }
 
   await ensureTable(env.DB);
 
-  const declarationRow = await getDeclaration(env.DB, g);
-  if (declarationRow) return json({ error: "The first goal scorer has already been declared for this grade." }, 409, cors(env, request));
-
   const spinner = await env.DB.prepare(
-    "SELECT playhq_uid, name FROM members WHERE CAST(pin AS TEXT) = ?"
+    "SELECT id, name, playhq_uid FROM members WHERE CAST(pin AS TEXT) = ?"
   ).bind(p).first();
 
-  if (!spinner) return json({ error: "PIN not found." }, 401, cors(env, request));
+  if (!spinner) {
+    return json({ error: "PIN not found." }, 401, cors(env, request));
+  }
+
+  // Handle potential case-sensitivity issues with D1 returning uppercase ID
+  const spinnerId = spinner.id !== undefined ? spinner.id : spinner.ID;
+  const spinnerName = spinner.name !== undefined ? spinner.name : spinner.NAME;
+  const spinnerUid = spinner.playhq_uid !== undefined ? spinner.playhq_uid : spinner.PLAYHQ_UID;
+
+  if (!spinnerId) {
+    return json({ error: "Member record is missing a canonical ID. Contact admin." }, 500, cors(env, request));
+  }
 
   const alreadySpun = await env.DB.prepare(
-    "SELECT 1 FROM wheel_spins WHERE LOWER(grade) = ? AND spinner_uid = ?"
-  ).bind(g, spinner.playhq_uid).first();
-  if (alreadySpun) return json({ error: "You have already used your spin for this grade." }, 409, cors(env, request));
+    "SELECT 1 FROM wheel_spins WHERE LOWER(grade) = ? AND spinner_id = ?"
+  ).bind(g, spinnerId).first();
+
+  if (alreadySpun) {
+    return json({ error: "You have already used your spin for this grade." }, 409, cors(env, request));
+  }
 
   const fullRoster = await getFullRoster(env.DB, g);
-  const spunUIDs = await getSpunUIDs(env.DB, g);
-  const activeWheel = fullRoster.filter(p => !spunUIDs.has(p.playhq_uid));
+  
+  // Self-exclusion check
+  const onRoster = fullRoster.some(x => 
+    String(x.id) === String(spinnerId) || 
+    String(x.name).toLowerCase().trim() === String(spinnerName).toLowerCase().trim()
+  );
 
-  if (!activeWheel.length) return json({ error: "No players remaining on the wheel." }, 409, cors(env, request));
-  if (fullRoster.some(x => x.playhq_uid === spinner.playhq_uid)) {
-    return json({ error: "You are on the team sheet and cannot spin." }, 403, cors(env, request));
+  if (onRoster) {
+    return json({ error: "You can't spin your own team." }, 403, cors(env, request));
+  }
+
+  const spunIDs = await getSpunIDs(env.DB, g);
+  const activeWheel = fullRoster.filter(p2 => !spunIDs.has(String(p2.id)));
+
+  if (!activeWheel.length) {
+    return json({ error: "No players remaining on the wheel." }, 409, cors(env, request));
   }
 
   const a = new Uint32Array(1);
   crypto.getRandomValues(a);
   const i = Math.floor((a[0] / 4294967296) * activeWheel.length);
   const winner = activeWheel[i];
-
   const createdAt = new Date().toISOString();
 
-  await env.DB.prepare(
-    "INSERT INTO wheel_spins (grade, spinner_uid, spinner_name, winner_uid, winner_name, created_at) VALUES (?, ?, ?, ?, ?, ?)"
-  ).bind(g, spinner.playhq_uid, spinner.name, winner.playhq_uid, winner.name, createdAt).run();
+  // If winner.id is not a number (e.g. mock UID), we store 0 in winner_id 
+  // and the string in winner_uid. The trigger or manual insert will handle it.
+  const wId = winner.id !== undefined ? winner.id : winner.ID;
+  const wName = winner.name !== undefined ? winner.name : winner.NAME;
+
+  const winnerId = isNaN(parseInt(wId)) ? 0 : parseInt(wId);
+  const winnerUid = isNaN(parseInt(wId)) ? String(wId) : null;
+
+  try {
+    await env.DB.prepare(
+      "INSERT INTO wheel_spins (grade, spinner_id, spinner_name, winner_id, winner_name, created_at, spinner_uid, winner_uid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+    ).bind(
+      g, 
+      spinnerId, 
+      spinnerName, 
+      winnerId, 
+      wName, 
+      createdAt, 
+      spinnerUid || null, 
+      winnerUid
+    ).run();
+  } catch (e) {
+    console.error("Insert failed:", e);
+    return json({ 
+      error: "Database error during spin.", 
+      message: e.message,
+      debug: { spinnerId, winnerId, winnerName: winner.name }
+    }, 500, cors(env, request));
+  }
 
   return json({
     success: true,
     result: {
-      spinner_uid: spinner.playhq_uid,
-      spinner_name: spinner.name,
-      winner_uid: winner.playhq_uid,
+      spinner_id: spinnerId,
+      spinner_name: spinnerName,
+      winner_id: winnerId,
       winner_name: winner.name,
       winner_index: i,
       wheel_size: activeWheel.length
@@ -210,22 +288,19 @@ async function handleSpin(request, env) {
   }, 200, cors(env, request));
 }
 
-// ---- Admin: clear all spins (and any declaration) for a grade ----
 async function handleAdminClearSpins(request, env) {
   const b = await request.json().catch(() => ({}));
   const g = grade(b.grade);
   if (!g) return json({ error: "Invalid grade." }, 400, cors(env, request));
   if (!checkPasscode(env, b.passcode)) return json({ error: "Invalid passcode." }, 401, cors(env, request));
-
+  
   await ensureTable(env.DB);
   await ensureDeclarationsTable(env.DB);
   await env.DB.prepare("DELETE FROM wheel_spins WHERE LOWER(grade) = ?").bind(g).run();
   await env.DB.prepare("DELETE FROM grade_declarations WHERE grade = ?").bind(g).run();
-
   return json({ success: true, grade: g }, 200, cors(env, request));
 }
 
-// ---- Admin: declare which player scored first, looking up who spun them ----
 async function handleAdminDeclareWinner(request, env) {
   const b = await request.json().catch(() => ({}));
   const g = grade(b.grade);
@@ -235,7 +310,6 @@ async function handleAdminDeclareWinner(request, env) {
   if (!checkPasscode(env, b.passcode)) return json({ error: "Invalid passcode." }, 401, cors(env, request));
 
   await ensureTable(env.DB);
-
   const spinRow = await env.DB.prepare(
     "SELECT spinner_name, winner_name FROM wheel_spins WHERE LOWER(grade) = ? AND LOWER(winner_name) = LOWER(?)"
   ).bind(g, scorer).first();
@@ -247,8 +321,7 @@ async function handleAdminDeclareWinner(request, env) {
   await ensureDeclarationsTable(env.DB);
   const declaredAt = new Date().toISOString();
   await env.DB.prepare(
-    "INSERT INTO grade_declarations (grade, scorer_name, spinner_name, declared_at) VALUES (?, ?, ?, ?) " +
-    "ON CONFLICT(grade) DO UPDATE SET scorer_name = excluded.scorer_name, spinner_name = excluded.spinner_name, declared_at = excluded.declared_at"
+    "INSERT INTO grade_declarations (grade, scorer_name, spinner_name, declared_at) VALUES (?, ?, ?, ?) ON CONFLICT(grade) DO UPDATE SET scorer_name = excluded.scorer_name, spinner_name = excluded.spinner_name, declared_at = excluded.declared_at"
   ).bind(g, spinRow.winner_name, spinRow.spinner_name, declaredAt).run();
 
   return json({
@@ -263,7 +336,10 @@ async function route(request, env) {
   const u = new URL(request.url);
   const path = u.pathname.replace(/\/$/, "");
 
-  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors(env, request) });
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: cors(env, request) });
+  }
+
   if (request.method === "GET" && path === "/api/state") return handleState(request, env);
   if (request.method === "GET" && path === "/api/history") {
     await ensureTable(env.DB);
@@ -291,8 +367,7 @@ export default {
       return json({
         error: "Server error.",
         message: e.message,
-        cause: e.cause ? e.cause.message : undefined,
-        sql_error: e.db_error || undefined
+        cause: e.cause ? e.cause.message : void 0
       }, 500, cors(env, request));
     }
   }
