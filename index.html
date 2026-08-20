@@ -242,7 +242,7 @@ function spinWheelTo(targetIndex, totalOptions, duration) {
     const canvas = $("wheelCanvas");
     const sliceDeg = 360 / totalOptions;
     const targetDeg = 270 - (targetIndex * sliceDeg) - (sliceDeg / 2);
-    const rotations = 6 + Math.floor(Math.random() * 3);
+    const rotations = 10 + Math.floor(Math.random() * 5);
     const finalDeg = wheelRotation + rotations * 360 + ((targetDeg - (wheelRotation % 360)) + 360) % 360;
     const start = performance.now(), startDeg = wheelRotation;
     function frame(t) {
